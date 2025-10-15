@@ -3,22 +3,18 @@ import 'package:flutter/material.dart';
 import 'Login.dart';
 import 'Registration.dart';
 
-class LogOrReg extends StatelessWidget {
-  const LogOrReg({super.key});
+class log_or_reg extends StatelessWidget {
+  const log_or_reg({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Берем цвета из темы
-    final primaryColor = Theme.of(context).colorScheme.primary;
-    final secondaryColor = Theme.of(context).colorScheme.secondary;
-
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [primaryColor, secondaryColor],
+            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
           ),
         ),
         child: Center(
@@ -28,7 +24,7 @@ class LogOrReg extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Заголовок
-                Column(
+                const Column(
                   children: [
                     Icon(
                       Icons.storefront_rounded,
@@ -38,55 +34,90 @@ class LogOrReg extends StatelessWidget {
                     SizedBox(height: 16),
                     Text(
                       'Добро пожаловать',
-                      style: Theme.of(context).textTheme.headlineMedium!
-                          .copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
                     SizedBox(height: 8),
                     Text(
                       'Выберите действие',
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium!.copyWith(color: Colors.white70),
+                      style: TextStyle(fontSize: 16, color: Colors.white70),
                     ),
                   ],
                 ),
 
-                SizedBox(height: 60),
+                const SizedBox(height: 60),
 
                 // Кнопка входа
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LoginPage(),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginPage(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Color(0xFF667eea),
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    );
-                  },
-                  child: const Text("Войти"),
+                      textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: const Text("Войти"),
+                  ),
                 ),
 
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
 
                 // Кнопка регистрации
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const RegistrationPage(),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RegistrationPage(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: const BorderSide(color: Colors.white, width: 2),
                       ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    side: BorderSide(color: Colors.white, width: 2),
+                      textStyle: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: const Text("Зарегистрироваться"),
                   ),
-                  child: const Text("Зарегистрироваться"),
+                ),
+
+                const SizedBox(height: 40),
+
+                // Дополнительная информация
+                const Text(
+                  'Начните работу с платформой\nдля магазинов и поставщиков',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white54, fontSize: 14),
                 ),
               ],
             ),

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:postavki/widgets/LogOrReg.dart';
 
-import 'widgets/app_theme.dart';
-
 // Глобальная переменная
 class GlobalConfig {
   static const String baseUrl = "http://localhost:3000";
@@ -17,10 +15,9 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: LogOrReg(),
+      home: log_or_reg(),
     );
   }
 }
