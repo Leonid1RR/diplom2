@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Store {
+  id          Int          @id @default(autoincrement())
+  name        String
+  address     String
+  description String
+  photo       String?
+  password    String // 🔑 пароль магазина
+
+  warehouse   Warehouse?
+  supplies    Supply[]     @relation("StoreSupplies") // полученные поставки
+  reviews     Review[]     @relation("StoreReviews") // отзывы оставленные магазином
+  supportMessages SupportMessage[] @relation("StoreSupportMessages") // сообщения в поддержку от магазина
+}
+
+model Warehouse {
+  id           Int    @id @default(autoincrement())
+  productCount Int
+  storeId      Int   @unique
+
+  store        Store @relation(fields: [storeId], references: [id])
+  products     ProductOnWarehouse[]
+}
+
+model Product {
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String
+  expiration  Int
+  price       Float
+  photo       String?
+
+  warehouses ProductOnWarehouse[]
+}
+
+/// Таблица-связка "многие-ко-многим" между Product и Warehouse
+model ProductOnWarehouse {
+  id          Int       @id @default(autoincrement())
+  productId   Int
+  warehouseId Int
+
+  product     Product   @relation(fields: [productId], references: [id])
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+}
+
+model Supplier {
+  id          Int             @id @default(autoincrement())
+  name        String  // 🔑 имя поставщика
+  address     String
+  description String
+  batchCount  Int?
+  password    String // 🔑 пароль поставщика
+  photo       String?  
+
+  batches     ProductBatch[]
+  supplies    Supply[]        @relation("SupplierSupplies") // отправленные поставки
+  reviews     Review[]        @relation("SupplierReviews") // отзывы полученные поставщиком
+  supportMessages SupportMessage[] @relation("SupplierSupportMessages") // сообщения в поддержку от поставщика
+}
+
+model ProductBatch {
+  id           Int     @id @default(autoincrement())
+  name         String
+  description  String
+  expiration   Int
+  price        Float
+  photo        String?
+  productCount Int
+
+  supplierId   Int
+  supplier     Supplier @relation(fields: [supplierId], references: [id])
+}
+
+model Supply {
+  id             Int      @id @default(autoincrement())
+  fromSupplierId Int
+  toStoreId      Int
+  content        String
+  status         String
+
+  fromSupplier   Supplier @relation("SupplierSupplies", fields: [fromSupplierId], references: [id])
+  toStore        Store    @relation("StoreSupplies", fields: [toStoreId], references: [id])
+}
+
+model Review {
+  id          Int      @id @default(autoincrement())
+  text        String   // текст отзыва
+  createdAt   DateTime @default(now()) // дата создания отзыва
+  
+  // от кого (магазин оставивший отзыв)
+  fromStoreId Int
+  fromStore   Store    @relation("StoreReviews", fields: [fromStoreId], references: [id])
+  
+  // кому (поставщик на которого написали отзыв)
+  toSupplierId Int
+  toSupplier   Supplier @relation("SupplierReviews", fields: [toSupplierId], references: [id])
+
+  @@map("reviews")
+}
+
+model SupportMessage {
+  id          Int      @id @default(autoincrement())
+  text        String   // содержание сообщения
+  createdAt   DateTime @default(now()) // дата создания
+  
+  // от кого (магазин или поставщик)
+  fromStoreId Int?     // может быть null если сообщение от поставщика
+  fromSupplierId Int?  // может быть null если сообщение от магазина
+  
+  fromStore    Store?    @relation("StoreSupportMessages", fields: [fromStoreId], references: [id])
+  fromSupplier Supplier? @relation("SupplierSupportMessages", fields: [fromSupplierId], references: [id])
+
+  @@map("support_messages")
+}
+

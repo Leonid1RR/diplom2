@@ -1,0 +1,152 @@
+Отлично! Я составлю для тебя готовые Postman-запросы для всех твоих таблиц: Store, Warehouse, Product, WarehouseProduct, Supplier, ProductBatch.
+
+Ниже пример методов и URL, которые можно использовать прямо в Postman. Предположим, сервер работает на http://localhost:3000.
+
+1️⃣ Store
+
+Создать магазин (POST):
+
+POST http://localhost:3000/stores
+Content-Type: application/json
+
+{
+  "name": "Магазин 1",
+  "address": "ул. Пушкина, 10",
+  "description": "Продукты",
+  "photo": "store.jpg"
+}
+
+
+Получить все магазины (GET):
+
+GET http://localhost:3000/stores
+
+
+Удалить магазин (DELETE):
+
+DELETE http://localhost:3000/stores/1
+
+2️⃣ Warehouse
+
+Создать склад (POST):
+
+POST http://localhost:3000/warehouses
+Content-Type: application/json
+
+{
+  "storeId": 1
+}
+
+
+Получить все склады (GET):
+
+GET http://localhost:3000/warehouses
+
+
+Удалить склад (DELETE):
+
+DELETE http://localhost:3000/warehouses/1
+
+3️⃣ Product
+
+Создать продукт (POST):
+
+POST http://localhost:3000/products
+Content-Type: application/json
+
+{
+  "name": "Молоко",
+  "description": "1 литр",
+  "expiration": 7,
+  "price": 100.0,
+  "photo": "milk.jpg"
+}
+
+
+Получить все продукты (GET):
+
+GET http://localhost:3000/products
+
+
+Удалить продукт (DELETE):
+
+DELETE http://localhost:3000/products/1
+
+4️⃣ WarehouseProduct
+
+Создать связь продукт ↔ склад (POST):
+
+POST http://localhost:3000/warehouse-products
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "warehouseId": 1,
+  "quantity": 10
+}
+
+
+Получить все связи (GET):
+
+GET http://localhost:3000/warehouse-products
+
+
+Удалить связь (DELETE):
+
+DELETE http://localhost:3000/warehouse-products/1
+
+5️⃣ Supplier
+
+Создать поставщика (POST):
+
+POST http://localhost:3000/suppliers
+Content-Type: application/json
+
+{
+  "address": "ул. Ленина, 5",
+  "description": "Поставщик молочных продуктов",
+  "batchCount": 3
+}
+
+
+Получить всех поставщиков (GET):
+
+GET http://localhost:3000/suppliers
+
+
+Удалить поставщика (DELETE):
+
+DELETE http://localhost:3000/suppliers/1
+
+6️⃣ ProductBatch
+
+Создать партию продукта (POST):
+
+POST http://localhost:3000/product-batches
+Content-Type: application/json
+
+{
+  "name": "Молоко партия 1",
+  "description": "Партия молока 1 литр",
+  "expiration": 7,
+  "price": 100.0,
+  "photo": "milk_batch.jpg",
+  "productCount": 50,
+  "supplierId": 1,
+  "productId": 1
+}
+
+
+Получить все партии (GET):
+
+GET http://localhost:3000/product-batches
+
+
+Удалить партию (DELETE):
+
+DELETE http://localhost:3000/product-batches/1
+
+
+Если хочешь, я могу сразу сделать готовый файл коллекции Postman (.json), который можно импортировать и будет сразу видно все эти запросы с заполненными полями.
+
+Хочешь, чтобы я это сделал?

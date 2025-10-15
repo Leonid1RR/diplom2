@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:padding="32dp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioGroup
+            android:id="@+id/roleGroup"
+            android:orientation="horizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <RadioButton
+                android:id="@+id/radioStore"
+                android:text="Магазин"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+            <RadioButton
+                android:id="@+id/radioSupplier"
+                android:text="Поставщик"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"/>
+        </RadioGroup>
+
+        <EditText android:id="@+id/editName" android:hint="Имя" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/editPassword" android:hint="Пароль" android:inputType="textPassword" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/editAddress" android:hint="Адрес" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <EditText android:id="@+id/editDescription" android:hint="Описание" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <Button android:id="@+id/btnRegisterUser" android:text="Зарегистрироваться" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp"/>
+    </LinearLayout>
+</ScrollView>

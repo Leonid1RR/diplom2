@@ -1,0 +1,33 @@
+
+    НАКЛАДНАЯ № {{invoiceNumber}}
+    Дата составления: {{invoiceDate}}
+
+    ПОСТАВЩИК:
+    Наименование: {{supplier.name}}
+    Адрес: {{supplier.address}}
+    Описание: {{supplier.description}}
+
+    ПОЛУЧАТЕЛЬ:
+    Наименование: {{store.name}} 
+    Адрес: {{store.address}}
+    Описание: {{store.description}}
+
+    ИНФОРМАЦИЯ О ПОСТАВКЕ:
+    Номер заказа: {{order.id}}
+    Статус: {{order.status}}
+    Дата создания заказа: {{createdDate}}
+    Дата получения: {{receivedDate}}
+
+    ТОВАРНАЯ ЧАСТЬ:
+    Наименование товара: {{order.batchName}}
+    Описание: {{order.description}}
+    Количество партий: {{order.quantity}}
+    Количество товаров в партии: {{order.itemsPerBatch}}
+    Общее количество товаров: {{order.totalItems}}
+    Срок годности: {{order.expiration}} дней
+    Общая стоимость: {{order.totalPrice}} руб.
+
+    Подписи:
+    _______________/{{supplier.name}}/   _______________/{{store.name}}/
+    (Поставщик)                          (Получатель)
+  
