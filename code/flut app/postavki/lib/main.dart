@@ -3,7 +3,7 @@ import 'package:postavki/widgets/LogOrReg.dart';
 
 // Глобальная переменная
 class GlobalConfig {
-  static const String baseUrl = "http://localhost:3000";
+  static const String baseUrl = "https://qxv8dr69-3000.euw.devtunnels.ms";
 }
 
 void main() {

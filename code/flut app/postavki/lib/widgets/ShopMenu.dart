@@ -1430,7 +1430,7 @@ class BatchOrderDialog extends StatefulWidget {
 class _BatchOrderDialogState extends State<BatchOrderDialog> {
   int _quantity = 1;
   final TextEditingController _reviewController = TextEditingController();
-  final String baseUrl = "http://localhost:3000";
+  final String baseUrl = GlobalConfig.baseUrl;
   List<dynamic> supplierReviews = [];
 
   @override
@@ -1794,7 +1794,7 @@ class ReceiveOrderDialog extends StatefulWidget {
 class _ReceiveOrderDialogState extends State<ReceiveOrderDialog> {
   final TextEditingController _priceController = TextEditingController();
   File? _selectedImage;
-  final String baseUrl = "http://localhost:3000";
+  final String baseUrl = GlobalConfig.baseUrl;
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -2132,7 +2132,7 @@ class _ProductEditDialogState extends State<ProductEditDialog> {
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
-  final String baseUrl = "http://localhost:3000";
+  final String baseUrl = GlobalConfig.baseUrl;
 
   @override
   void initState() {

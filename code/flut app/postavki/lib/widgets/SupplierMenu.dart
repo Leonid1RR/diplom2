@@ -1105,7 +1105,7 @@ class _BatchDialogState extends State<BatchDialog> {
       TextEditingController(); // Количество партий
   final TextEditingController itemsPerBatchController =
       TextEditingController(); // Товаров в одной партии
-  final String baseUrl = "http://localhost:3000";
+  final String baseUrl = GlobalConfig.baseUrl;
 
   File? _selectedImage;
   String? _currentPhoto;
