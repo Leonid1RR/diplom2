@@ -307,108 +307,31 @@ class _SupplierMenuState extends State<SupplierMenu> {
     if (!mounted) return;
 
     try {
-      // Находим заказ
-      final supply = supplies.firstWhere((s) => s['id'] == supplyId);
-      final canSend = await _checkInventory(supply['content']);
+      final response = await http.post(
+        Uri.parse('$baseUrl/orders/send'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'supplyId': supplyId}),
+      );
 
-      if (canSend) {
-        // Обновляем статус поставки
-        final response = await http.put(
-          Uri.parse('$baseUrl/supplies/$supplyId'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'fromSupplierId': supply['fromSupplierId'],
-            'toStoreId': supply['toStoreId'],
-            'content': supply['content'],
-            'status': 'отправлен',
-          }),
-        );
-
-        if (response.statusCode == 200) {
-          // Уменьшаем количество партий
-          await _updateBatchesInventory(supply['content']);
-          _loadSupplies();
-          _loadBatches();
-          if (!mounted) return;
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Заказ отправлен')));
-        } else {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка сервера: ${response.statusCode}')),
-          );
-        }
-      } else {
+      if (response.statusCode == 200) {
+        _loadSupplies();
+        _loadBatches();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Недостаточно партий на складе')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Заказ отправлен')));
+      } else {
+        final error = jsonDecode(response.body)['error'];
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка отправки: $error')));
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
-    }
-  }
-
-  Future<bool> _checkInventory(String content) async {
-    try {
-      final orderItems = jsonDecode(content);
-
-      if (orderItems is Map && orderItems.containsKey('batchId')) {
-        final batchId = orderItems['batchId'];
-        final batchCount = orderItems['quantity'] ?? 1; // Z партий
-
-        // Находим партию
-        final batch = batches.firstWhere(
-          (b) => b['id'] == batchId,
-          orElse: () => null,
-        );
-
-        // Проверяем, что у поставщика достаточно партий
-        if (batch == null || (batch['productCount'] ?? 0) < batchCount) {
-          return false;
-        }
-        return true;
-      }
-
-      return false;
-    } catch (e) {
-      debugPrint('Error checking inventory: $e');
-      return false;
-    }
-  }
-
-  Future<void> _updateBatchesInventory(String content) async {
-    try {
-      final orderItems = jsonDecode(content);
-
-      if (orderItems is Map && orderItems.containsKey('batchId')) {
-        final batchId = orderItems['batchId'];
-        final batchCount = orderItems['quantity'] ?? 1; // Z партий
-
-        final batch = batches.firstWhere((b) => b['id'] == batchId);
-        final newCount = (batch['productCount'] ?? 0) - batchCount;
-
-        // Обновляем количество партий у поставщика
-        await http.put(
-          Uri.parse('$baseUrl/batches/${batch['id']}'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'name': batch['name'],
-            'description': batch['description'],
-            'expiration': batch['expiration'],
-            'price': batch['price'],
-            'photo': batch['photo'],
-            'productCount': newCount, // Уменьшаем количество партий
-            'supplierId': batch['supplierId'],
-          }),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error updating batches inventory: $e');
     }
   }
 
@@ -599,7 +522,6 @@ class _SupplierMenuState extends State<SupplierMenu> {
     );
   }
 
-  // Остальные методы без изменений...
   void _showSupportDialog() {
     final controller = TextEditingController();
     showDialog(
@@ -959,14 +881,10 @@ class _SupplierMenuState extends State<SupplierMenu> {
 
     if (pickedFile != null) {
       try {
-        // Читаем файл как байты
         final bytes = await File(pickedFile.path).readAsBytes();
-        // Конвертируем в base64
         final base64Image = base64Encode(bytes);
-        // Определяем тип изображения
         final imageType = pickedFile.path.split('.').last.toLowerCase();
         final mimeType = _getMimeType(imageType);
-        // Сохраняем как data URL
         final photoData = 'data:$mimeType;base64,$base64Image';
 
         await _updateSupplierField('photo', photoData);
@@ -1079,7 +997,6 @@ class _SupplierMenuState extends State<SupplierMenu> {
 }
 
 // Диалог для добавления/редактирования партии
-// Диалог для добавления/редактирования партии
 class BatchDialog extends StatefulWidget {
   final int supplierId;
   final Map<String, dynamic>? batch;
@@ -1101,10 +1018,8 @@ class _BatchDialogState extends State<BatchDialog> {
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController expirationController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
-  final TextEditingController batchCountController =
-      TextEditingController(); // Количество партий
-  final TextEditingController itemsPerBatchController =
-      TextEditingController(); // Товаров в одной партии
+  final TextEditingController batchCountController = TextEditingController();
+  final TextEditingController itemsPerBatchController = TextEditingController();
   final String baseUrl = GlobalConfig.baseUrl;
 
   File? _selectedImage;
@@ -1118,13 +1033,12 @@ class _BatchDialogState extends State<BatchDialog> {
       descriptionController.text = widget.batch!['description'];
       expirationController.text = widget.batch!['expiration'].toString();
       priceController.text = widget.batch!['price'].toString();
-      batchCountController.text = '1'; // По умолчанию 1 партия
-      itemsPerBatchController.text = widget.batch!['productCount']
-          .toString(); // Товаров в партии
+      batchCountController.text = '1';
+      itemsPerBatchController.text = widget.batch!['productCount'].toString();
       _currentPhoto = widget.batch!['photo'];
     } else {
-      batchCountController.text = '1'; // По умолчанию 1 партия
-      itemsPerBatchController.text = '1'; // По умолчанию 1 товар в партии
+      batchCountController.text = '1';
+      itemsPerBatchController.text = '1';
     }
   }
 
@@ -1191,7 +1105,43 @@ class _BatchDialogState extends State<BatchDialog> {
       final photoData = await _convertImageToBase64();
       final batchCount = int.tryParse(batchCountController.text) ?? 1;
       final itemsPerBatch = int.tryParse(itemsPerBatchController.text) ?? 1;
-      final totalItems = batchCount * itemsPerBatch; // Общее количество товаров
+      final totalItems = batchCount * itemsPerBatch;
+
+      if (batchCount <= 0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Количество партий должно быть больше 0'),
+          ),
+        );
+        return;
+      }
+
+      if (batchCount > 50) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Не больше 50 партий')));
+        return;
+      }
+
+      if (itemsPerBatch <= 0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Количество товаров в партии должно быть больше 0'),
+          ),
+        );
+        return;
+      }
+
+      if (itemsPerBatch > 50) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не больше 50 товаров в партии')),
+        );
+        return;
+      }
 
       final data = {
         'name': nameController.text,
@@ -1199,8 +1149,8 @@ class _BatchDialogState extends State<BatchDialog> {
         'expiration': int.tryParse(expirationController.text) ?? 0,
         'price': double.tryParse(priceController.text) ?? 0.0,
         'photo': photoData,
-        'productCount': batchCount, // Количество партий
-        'itemsPerBatch': itemsPerBatch, // Товаров в одной партии
+        'productCount': batchCount,
+        'itemsPerBatch': itemsPerBatch,
         'supplierId': widget.supplierId,
       };
 
@@ -1238,6 +1188,30 @@ class _BatchDialogState extends State<BatchDialog> {
     final itemsPerBatch = int.tryParse(itemsPerBatchController.text) ?? 1;
     final totalItems = batchCount * itemsPerBatch;
 
+    final bool isBatchCountValid = batchCount > 0 && batchCount <= 50;
+    final bool isItemsPerBatchValid = itemsPerBatch > 0 && itemsPerBatch <= 50;
+    final bool allValid = isBatchCountValid && isItemsPerBatchValid;
+
+    Color getColor() {
+      if (!allValid) return Colors.red[50]!;
+      return Colors.blue[50]!;
+    }
+
+    Color getBorderColor() {
+      if (!allValid) return Colors.red[100]!;
+      return Colors.blue[100]!;
+    }
+
+    Color getTextColor() {
+      if (!allValid) return Colors.red;
+      return Colors.blue;
+    }
+
+    IconData getIcon() {
+      if (!allValid) return Icons.warning;
+      return Icons.info;
+    }
+
     return AlertDialog(
       title: Text(
         widget.batch == null ? 'Добавить партию' : 'Редактировать партию',
@@ -1246,7 +1220,6 @@ class _BatchDialogState extends State<BatchDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Поле для фото
             GestureDetector(
               onTap: _pickImage,
               child: Container(
@@ -1335,7 +1308,7 @@ class _BatchDialogState extends State<BatchDialog> {
             TextField(
               controller: batchCountController,
               decoration: const InputDecoration(
-                labelText: 'Количество партий',
+                labelText: 'Количество партий (1-50)',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -1349,7 +1322,7 @@ class _BatchDialogState extends State<BatchDialog> {
             TextField(
               controller: itemsPerBatchController,
               decoration: const InputDecoration(
-                labelText: 'Товаров в одной партии',
+                labelText: 'Товаров в одной партии (1-50)',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -1360,23 +1333,22 @@ class _BatchDialogState extends State<BatchDialog> {
 
             const SizedBox(height: 12),
 
-            // Информация об итоговом количестве
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: getColor(),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue[100]!),
+                border: Border.all(color: getBorderColor()),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info, color: Colors.blue, size: 20),
+                  Icon(getIcon(), color: getTextColor(), size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Итого: $batchCount партий × $itemsPerBatch товаров = $totalItems товаров',
-                      style: const TextStyle(
-                        color: Colors.blue,
+                      style: TextStyle(
+                        color: getTextColor(),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -1384,6 +1356,26 @@ class _BatchDialogState extends State<BatchDialog> {
                 ],
               ),
             ),
+
+            if (!allValid)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (!isBatchCountValid)
+                      const Text(
+                        '• Количество партий должно быть от 1 до 50',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    if (!isItemsPerBatchValid)
+                      const Text(
+                        '• Товаров в партии должно быть от 1 до 50',
+                        style: TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

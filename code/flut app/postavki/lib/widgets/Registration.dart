@@ -1,10 +1,10 @@
 import 'dart:convert';
-import 'dart:developer';
+import 'dart:developer' as developer; // Исправленный импорт для логирования
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import '../main.dart';
+import '../main.dart'; // Импорт для GlobalConfig
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -62,7 +62,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
                         ),
                       ),
                       SizedBox(height: 8),
@@ -101,7 +100,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
                             child: ToggleButtons(
                               isSelected: [!isSupplier, isSupplier],
                               onPressed: (int index) {
-                                log("Is Select $isSupplier");
+                                developer.log(
+                                  "Is Select $isSupplier",
+                                ); // Исправленный лог
                                 setState(() {
                                   isSupplier = index == 1;
                                 });

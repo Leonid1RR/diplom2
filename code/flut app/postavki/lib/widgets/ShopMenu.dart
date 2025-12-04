@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../main.dart'; // или правильный путь
+import '../main.dart';
 
 class ShopMenu extends StatefulWidget {
   final Map<String, dynamic> store;
@@ -29,7 +29,7 @@ class _ShopMenuState extends State<ShopMenu> {
   List<dynamic> reviews = [];
   Map<String, dynamic> storeData = {};
 
-  // Поиск и фильтры
+  // Поиск и фильтры для склада
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String _sortBy = 'name';
@@ -38,6 +38,12 @@ class _ShopMenuState extends State<ShopMenu> {
   // Сортировка заказов
   String _orderSortBy = 'id';
   String _orderFilterStatus = 'all';
+
+  // Фильтры и сортировка для партий
+  String _batchSortBy = 'name';
+  String _batchFilterSupplier = 'all';
+  final TextEditingController _batchSearchController = TextEditingController();
+  String _batchSearchQuery = '';
 
   @override
   void initState() {
@@ -85,12 +91,10 @@ class _ShopMenuState extends State<ShopMenu> {
         debugPrint('✅ Loaded ${warehouseProducts.length} grouped products');
       } else {
         debugPrint('❌ Server returned ${response.statusCode}');
-        // Fallback to regular endpoint
         await _loadWarehouseProductsFallback();
       }
     } catch (e) {
       debugPrint('Error loading warehouse products: $e');
-      // Fallback to regular endpoint if grouped endpoint fails
       await _loadWarehouseProductsFallback();
     }
   }
@@ -104,7 +108,6 @@ class _ShopMenuState extends State<ShopMenu> {
         final warehouse = jsonDecode(response.body);
         final productsOnWarehouse = warehouse['products'] ?? [];
 
-        // Группируем товары по одинаковым характеристикам
         final Map<String, dynamic> groupedProducts = {};
 
         for (var productOnWarehouse in productsOnWarehouse) {
@@ -166,7 +169,6 @@ class _ShopMenuState extends State<ShopMenu> {
     }
   }
 
-  // Функция для генерации накладной - ИСПРАВЛЕННАЯ
   // Функция для генерации накладной - ДЛЯ PDF
   Future<void> _generateInvoice(int supplyId) async {
     try {
@@ -177,17 +179,14 @@ class _ShopMenuState extends State<ShopMenu> {
       );
 
       if (response.statusCode == 200) {
-        // Получаем директорию для сохранения файла
         final directory = await getTemporaryDirectory();
         final filePath = '${directory.path}/invoice-$supplyId.pdf';
 
-        // Сохраняем файл
         final file = File(filePath);
         await file.writeAsBytes(response.bodyBytes);
 
         debugPrint('✅ PDF invoice saved to: $filePath');
 
-        // Открываем файл
         final result = await OpenFile.open(filePath);
 
         if (result.type != ResultType.done) {
@@ -445,7 +444,6 @@ class _ShopMenuState extends State<ShopMenu> {
       return matchesSearch && matchesFilter;
     }).toList();
 
-    // Сортировка
     filtered.sort((a, b) {
       final productA = a['product'];
       final productB = b['product'];
@@ -537,41 +535,27 @@ class _ShopMenuState extends State<ShopMenu> {
 
   Future<void> _sellMultipleProducts(List<int> warehouseIds) async {
     try {
-      if (warehouseIds.length == 1) {
-        // Одиночное удаление
-        final response = await http.delete(
-          Uri.parse('$baseUrl/warehouse-products/${warehouseIds.first}'),
-        );
+      final response = await http.post(
+        Uri.parse('$baseUrl/warehouses/products/sell-multiple'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'warehouseIds': warehouseIds}),
+      );
 
-        if (response.statusCode == 200) {
-          _loadWarehouseProducts();
-          if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Товар продан')));
-          }
-        } else {
-          throw Exception('Server returned ${response.statusCode}');
+      if (response.statusCode == 200) {
+        _loadWarehouseProducts();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Продано ${warehouseIds.length} единиц товара'),
+            ),
+          );
         }
       } else {
-        // Массовое удаление
-        final response = await http.post(
-          Uri.parse('$baseUrl/warehouse-products/bulk-delete'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'warehouseIds': warehouseIds}),
-        );
-
-        if (response.statusCode == 200) {
-          _loadWarehouseProducts();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Продано ${warehouseIds.length} единиц товара'),
-              ),
-            );
-          }
-        } else {
-          throw Exception('Server returned ${response.statusCode}');
+        final error = jsonDecode(response.body)['error'];
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Ошибка продажи: $error')));
         }
       }
     } catch (e) {
@@ -621,15 +605,85 @@ class _ShopMenuState extends State<ShopMenu> {
           child: Column(
             children: [
               TextField(
-                decoration: const InputDecoration(
+                controller: _batchSearchController,
+                decoration: InputDecoration(
                   labelText: 'Поиск партий',
-                  prefixIcon: Icon(Icons.search),
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _batchSearchController.clear();
+                      setState(() {
+                        _batchSearchQuery = '';
+                      });
+                    },
+                  ),
                 ),
                 onChanged: (value) {
                   setState(() {
-                    _searchQuery = value;
+                    _batchSearchQuery = value;
                   });
                 },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _batchSortBy,
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'name',
+                          child: Text('По названию'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'price',
+                          child: Text('По цене'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'expiration',
+                          child: Text('По сроку годности'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'productCount',
+                          child: Text('По количеству'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _batchSortBy = value!;
+                        });
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Сортировка',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _batchFilterSupplier,
+                      items: [
+                        const DropdownMenuItem(
+                          value: 'all',
+                          child: Text('Все поставщики'),
+                        ),
+                        ..._getSupplierList().map((supplier) {
+                          return DropdownMenuItem(
+                            value: supplier['id'].toString(),
+                            child: Text(supplier['name']),
+                          );
+                        }),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _batchFilterSupplier = value!;
+                        });
+                      },
+                      decoration: const InputDecoration(labelText: 'Поставщик'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -638,7 +692,22 @@ class _ShopMenuState extends State<ShopMenu> {
           child: RefreshIndicator(
             onRefresh: _loadAllBatches,
             child: filteredBatches.isEmpty
-                ? const Center(child: Text('Нет доступных партий'))
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.inventory, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text('Нет доступных партий'),
+                        SizedBox(height: 8),
+                        Text(
+                          'Партии появятся когда поставщики добавят товары',
+                          style: TextStyle(color: Colors.grey),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  )
                 : ListView.builder(
                     itemCount: filteredBatches.length,
                     itemBuilder: (context, index) {
@@ -709,10 +778,51 @@ class _ShopMenuState extends State<ShopMenu> {
     );
   }
 
+  List<Map<String, dynamic>> _getSupplierList() {
+    final suppliers = <Map<String, dynamic>>[];
+    final supplierIds = <int>{};
+
+    for (final batch in allBatches) {
+      final supplier = batch['supplier'];
+      if (supplier != null && !supplierIds.contains(supplier['id'])) {
+        suppliers.add({'id': supplier['id'], 'name': supplier['name']});
+        supplierIds.add(supplier['id']);
+      }
+    }
+
+    return suppliers;
+  }
+
   List<dynamic> _filterAndSortBatches(List<dynamic> batches) {
-    return batches.where((batch) {
-      return batch['name'].toLowerCase().contains(_searchQuery.toLowerCase());
+    List<dynamic> filtered = batches.where((batch) {
+      final matchesSearch = batch['name'].toLowerCase().contains(
+        _batchSearchQuery.toLowerCase(),
+      );
+
+      bool matchesSupplier = true;
+      if (_batchFilterSupplier != 'all') {
+        matchesSupplier =
+            batch['supplier']?['id'].toString() == _batchFilterSupplier;
+      }
+
+      return matchesSearch && matchesSupplier;
     }).toList();
+
+    filtered.sort((a, b) {
+      switch (_batchSortBy) {
+        case 'price':
+          return a['price'].compareTo(b['price']);
+        case 'expiration':
+          return a['expiration'].compareTo(b['expiration']);
+        case 'productCount':
+          return a['productCount'].compareTo(b['productCount']);
+        case 'name':
+        default:
+          return a['name'].compareTo(b['name']);
+      }
+    });
+
+    return filtered;
   }
 
   void _showBatchOrderDialog(Map<String, dynamic> batch) {
@@ -732,7 +842,6 @@ class _ShopMenuState extends State<ShopMenu> {
 
     return Column(
       children: [
-        // Фильтры и сортировка заказов
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -849,13 +958,11 @@ class _ShopMenuState extends State<ShopMenu> {
   }
 
   List<dynamic> _filterAndSortOrders(List<dynamic> orders) {
-    // Фильтрация по статусу
     List<dynamic> filtered = orders.where((order) {
       if (_orderFilterStatus == 'all') return true;
       return order['status'] == _orderFilterStatus;
     }).toList();
 
-    // Сортировка
     filtered.sort((a, b) {
       switch (_orderSortBy) {
         case 'status':
@@ -954,15 +1061,25 @@ class _ShopMenuState extends State<ShopMenu> {
 
   Future<void> _cancelOrder(int supplyId) async {
     try {
-      final response = await http.delete(
-        Uri.parse('$baseUrl/supplies/$supplyId'),
+      final response = await http.post(
+        Uri.parse('$baseUrl/orders/cancel'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'supplyId': supplyId}),
       );
+
       if (response.statusCode == 200) {
         _loadSupplies();
         if (mounted) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(const SnackBar(content: Text('Заказ отменен')));
+        }
+      } else {
+        final error = jsonDecode(response.body)['error'];
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Ошибка отмены: $error')));
         }
       }
     } catch (e) {
@@ -974,7 +1091,7 @@ class _ShopMenuState extends State<ShopMenu> {
     }
   }
 
-  Future<void> _receiveOrder(Map<String, dynamic> supply) async {
+  Future<void> _receiveOrder(Map<String, dynamic> supply) {
     showDialog(
       context: context,
       builder: (context) => ReceiveOrderDialog(
@@ -985,6 +1102,7 @@ class _ShopMenuState extends State<ShopMenu> {
         },
       ),
     );
+    return Future.value();
   }
 
   // Вкладка аккаунта
@@ -1371,6 +1489,180 @@ class _ShopMenuState extends State<ShopMenu> {
     );
   }
 
+  Future<void> _createProductOnWarehouse() async {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final priceController = TextEditingController();
+    final expirationController = TextEditingController(text: '30');
+    File? selectedImage;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Добавить товар на склад'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Название товара',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Описание',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: priceController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Цена',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: expirationController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Срок годности (дни)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Фото товара (опционально):'),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final picker = ImagePicker();
+                    final pickedFile = await picker.pickImage(
+                      source: ImageSource.gallery,
+                      maxWidth: 800,
+                      maxHeight: 800,
+                      imageQuality: 80,
+                    );
+                    if (pickedFile != null) {
+                      setDialogState(() {
+                        selectedImage = File(pickedFile.path);
+                      });
+                    }
+                  },
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.grey[100],
+                    ),
+                    child: selectedImage != null
+                        ? Image.file(selectedImage!, fit: BoxFit.cover)
+                        : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_photo_alternate,
+                                size: 40,
+                                color: Colors.grey,
+                              ),
+                              Text(
+                                'Добавить фото',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Введите название товара')),
+                  );
+                  return;
+                }
+
+                final price = double.tryParse(priceController.text) ?? 0.0;
+                final expiration =
+                    int.tryParse(expirationController.text) ?? 30;
+
+                try {
+                  String? photoData;
+                  if (selectedImage != null) {
+                    final bytes = await selectedImage!.readAsBytes();
+                    final base64Image = base64Encode(bytes);
+                    final imageType = selectedImage!.path
+                        .split('.')
+                        .last
+                        .toLowerCase();
+                    final mimeType = _getMimeType(imageType);
+                    photoData = 'data:$mimeType;base64,$base64Image';
+                  }
+
+                  final response = await http.post(
+                    Uri.parse(
+                      '$baseUrl/warehouses/${widget.store['id']}/products',
+                    ),
+                    headers: {'Content-Type': 'application/json'},
+                    body: jsonEncode({
+                      'name': nameController.text.trim(),
+                      'description': descriptionController.text.trim(),
+                      'price': price,
+                      'expiration': expiration,
+                      'photo': photoData,
+                    }),
+                  );
+
+                  if (response.statusCode == 200) {
+                    _loadWarehouseProducts();
+                    if (mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Товар добавлен на склад'),
+                        ),
+                      );
+                    }
+                  } else {
+                    throw Exception('Server returned ${response.statusCode}');
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка создания товара: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Добавить'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1388,6 +1680,13 @@ class _ShopMenuState extends State<ShopMenu> {
           _buildAccountTab(),
         ],
       ),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+              onPressed: _createProductOnWarehouse,
+              backgroundColor: Colors.green,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
@@ -1411,6 +1710,7 @@ class _ShopMenuState extends State<ShopMenu> {
   }
 }
 
+// Вспомогательные классы диалогов
 class BatchOrderDialog extends StatefulWidget {
   final Map<String, dynamic> batch;
   final int storeId;
@@ -1458,23 +1758,13 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
   Future<void> _createOrder() async {
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/supplies'),
+        Uri.parse('$baseUrl/orders/create'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'fromSupplierId': widget.batch['supplierId'],
-          'toStoreId': widget.storeId,
-          'content': jsonEncode({
-            'batchId': widget.batch['id'],
-            'batchName': widget.batch['name'],
-            'description': widget.batch['description'],
-            'expiration': widget.batch['expiration'],
-            'quantity': _quantity,
-            'itemsPerBatch': widget.batch['productCount'],
-            'totalItems': _quantity * widget.batch['productCount'],
-            'totalPrice': widget.batch['price'] * _quantity,
-            'supplierPhoto': widget.batch['photo'],
-          }),
-          'status': 'оформлен',
+          'batchId': widget.batch['id'],
+          'storeId': widget.storeId,
+          'supplierId': widget.batch['supplierId'],
+          'quantity': _quantity,
         }),
       );
 
@@ -1485,6 +1775,12 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Заказ создан')));
+      } else {
+        final error = jsonDecode(response.body)['error'];
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка создания заказа: $error')),
+        );
       }
     } catch (e) {
       if (!mounted) return;
@@ -1509,7 +1805,7 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
       );
 
       if (response.statusCode == 200) {
-        _loadSupplierReviews(); // Перезагружаем отзывы
+        _loadSupplierReviews();
         if (!mounted) return;
         ScaffoldMessenger.of(
           context,
@@ -1538,7 +1834,6 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Фото товара
               Center(
                 child: Container(
                   width: 150,
@@ -1574,7 +1869,6 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
 
               const SizedBox(height: 16),
 
-              // Информация о товаре
               Text(
                 widget.batch['name'],
                 style: const TextStyle(
@@ -1594,7 +1888,6 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
 
               const SizedBox(height: 16),
 
-              // Информация о поставщике
               Text(
                 'Поставщик:',
                 style: TextStyle(
@@ -1615,7 +1908,6 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
 
               const SizedBox(height: 16),
 
-              // Сумма и управление количеством
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1680,7 +1972,6 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
 
               const SizedBox(height: 20),
 
-              // Отзывы на поставщика
               Text(
                 'Отзывы на поставщика:',
                 style: TextStyle(
@@ -1736,7 +2027,6 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
 
               const SizedBox(height: 16),
 
-              // Поле для нового отзыва
               const Text(
                 'Оставить отзыв:',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -1776,7 +2066,6 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
   }
 }
 
-// Диалог получения заказа (исправленная версия)
 class ReceiveOrderDialog extends StatefulWidget {
   final Map<String, dynamic> supply;
   final VoidCallback onOrderReceived;
@@ -1823,7 +2112,6 @@ class _ReceiveOrderDialogState extends State<ReceiveOrderDialog> {
         return;
       }
 
-      // Конвертируем фото в base64 если есть новое фото
       String? photoData;
       if (_selectedImage != null) {
         try {
@@ -1837,37 +2125,17 @@ class _ReceiveOrderDialogState extends State<ReceiveOrderDialog> {
         }
       }
 
-      print('🎯 Starting to receive order...');
-
-      // Создаем товары из данных заказа с прогресс-индикатором
-      final success = await _createProductsFromOrder(
-        widget.supply['content'],
-        price,
-        photoData,
-      );
-
-      if (!success) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Ошибка при создании товаров')),
-        );
-        return;
-      }
-
-      // Обновляем статус поставки
-      final response = await http.put(
-        Uri.parse('$baseUrl/supplies/${widget.supply['id']}'),
+      final response = await http.post(
+        Uri.parse('$baseUrl/orders/receive'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'fromSupplierId': widget.supply['fromSupplierId'],
-          'toStoreId': widget.supply['toStoreId'],
-          'content': widget.supply['content'],
-          'status': 'получено',
+          'supplyId': widget.supply['id'],
+          'pricePerItem': price,
+          'photo': photoData,
         }),
       );
 
       if (response.statusCode == 200) {
-        print('✅ Order marked as received');
         widget.onOrderReceived();
         if (!mounted) return;
         Navigator.pop(context);
@@ -1877,81 +2145,17 @@ class _ReceiveOrderDialogState extends State<ReceiveOrderDialog> {
           ),
         );
       } else {
-        print('❌ Failed to update supply status: ${response.statusCode}');
+        final error = jsonDecode(response.body)['error'];
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ошибка обновления статуса: ${response.statusCode}'),
-          ),
+          SnackBar(content: Text('Ошибка получения заказа: $error')),
         );
       }
     } catch (e) {
-      print('❌ Error receiving order: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Ошибка получения заказа: $e')));
-    }
-  }
-
-  Future<bool> _createProductsFromOrder(
-    String content,
-    double price,
-    String? photo,
-  ) async {
-    try {
-      print('🔧 Processing order content: $content');
-      final orderData = jsonDecode(content);
-
-      final productName = orderData['batchName'] ?? 'Товар из поставки';
-      final productDescription =
-          orderData['description'] ?? 'Товар получен из заказа';
-      final expiration = orderData['expiration'] ?? 30;
-
-      // ИЗМЕНЕНИЕ: Получаем количество партий и товаров в партии
-      final batchCount = orderData['quantity'] ?? 1; // Z партий
-      final itemsPerBatch =
-          orderData['itemsPerBatch'] ?? 1; // X товаров в партии
-      final totalItems = batchCount * itemsPerBatch; // Z * X товаров
-
-      String? finalPhoto = photo;
-      if (finalPhoto == null && orderData['supplierPhoto'] != null) {
-        finalPhoto = orderData['supplierPhoto'];
-      }
-
-      print(
-        '📦 Creating $totalItems products from $batchCount batches: $productName',
-      );
-
-      // Создаем Z * X товаров на складе магазина
-      bool? result = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => ProductCreationDialog(
-          totalItems: totalItems,
-          createProduct: (int index) async {
-            final response = await http.post(
-              Uri.parse(
-                '$baseUrl/warehouses/${widget.supply['toStoreId']}/products',
-              ),
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({
-                'name': productName,
-                'description': productDescription,
-                'expiration': expiration,
-                'price': price,
-                'photo': finalPhoto,
-              }),
-            );
-            return response.statusCode == 200;
-          },
-        ),
-      );
-
-      return result ?? false;
-    } catch (e) {
-      print('❌ Error creating products from order: $e');
-      return false;
     }
   }
 
@@ -2036,82 +2240,6 @@ class _ReceiveOrderDialogState extends State<ReceiveOrderDialog> {
   }
 }
 
-// Диалог прогресса создания товаров
-class ProductCreationDialog extends StatefulWidget {
-  final int totalItems;
-  final Future<bool> Function(int) createProduct;
-
-  const ProductCreationDialog({
-    super.key,
-    required this.totalItems,
-    required this.createProduct,
-  });
-
-  @override
-  State<ProductCreationDialog> createState() => _ProductCreationDialogState();
-}
-
-class _ProductCreationDialogState extends State<ProductCreationDialog> {
-  int _currentItem = 0;
-  bool _isComplete = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _createProducts();
-  }
-
-  Future<void> _createProducts() async {
-    for (int i = 0; i < widget.totalItems; i++) {
-      final success = await widget.createProduct(i);
-      if (!success) {
-        if (!mounted) return;
-        Navigator.pop(context, false);
-        return;
-      }
-
-      if (mounted) {
-        setState(() {
-          _currentItem = i + 1;
-        });
-      }
-
-      // Небольшая задержка для анимации
-      await Future.delayed(const Duration(milliseconds: 50));
-    }
-
-    if (mounted) {
-      setState(() {
-        _isComplete = true;
-      });
-      await Future.delayed(const Duration(milliseconds: 500));
-      Navigator.pop(context, true);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Добавление товаров на склад'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _isComplete
-                ? 'Готово! Добавлено ${widget.totalItems} товаров'
-                : 'Добавляем товары: $_currentItem из ${widget.totalItems}',
-          ),
-          const SizedBox(height: 16),
-          LinearProgressIndicator(
-            value: widget.totalItems > 0 ? _currentItem / widget.totalItems : 0,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Диалог редактирования товара (без изменений)
 class ProductEditDialog extends StatefulWidget {
   final Map<String, dynamic> product;
   final List<int> warehouseIds;

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'Login.dart';
 import 'Registration.dart';
 
-class log_or_reg extends StatelessWidget {
-  const log_or_reg({super.key});
+class LogOrReg extends StatelessWidget {
+  const LogOrReg({super.key});
 
   @override
   Widget build(BuildContext context) {

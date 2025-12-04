@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:postavki/main.dart';
 
+import 'AdminMenu.dart'; // Добавлен импорт AdminMenu
 import 'ShopMenu.dart';
 import 'SupplierMenu.dart';
 
@@ -18,6 +19,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController nameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final String baseUrl = GlobalConfig.baseUrl;
+  String appVersion = "1.2.0";
 
   bool isLoading = false;
   bool isSupplier = false;
@@ -213,10 +215,23 @@ class _LoginPageState extends State<LoginPage> {
                   const SizedBox(height: 20),
 
                   // Дополнительная информация
-                  const Text(
-                    'Убедитесь, что выбран правильный тип аккаунта',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white54, fontSize: 14),
+                  Column(
+                    children: [
+                      const Text(
+                        'Убедитесь, что выбран правильный тип аккаунта',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white54, fontSize: 14),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Для входа как администратор введите логин и пароль администратора\n(по умолчанию: admin/admin)',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -228,7 +243,6 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Future<void> _login() async {
-    print('🔗 TRYING TO CONNECT TO: $baseUrl');
     debugPrint('🔗 TRYING TO CONNECT TO: $baseUrl');
 
     if (nameController.text.isEmpty || passwordController.text.isEmpty) {
@@ -241,48 +255,82 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final String endpoint = isSupplier ? '/suppliers' : '/stores';
-      final response = await http.get(Uri.parse('$baseUrl$endpoint'));
+      // ПЕРВОЕ: Проверяем, не пытается ли пользователь войти как администратор
+      final String? savedAdminName = await GlobalConfig.getSetting(
+        GlobalConfig.adminUsernameKey,
+      );
+      final String? savedAdminPassword = await GlobalConfig.getSetting(
+        GlobalConfig.adminPasswordKey,
+      );
+
+      // Устанавливаем значения по умолчанию если настройки не сохранены
+      final String adminName = savedAdminName ?? 'admin';
+      final String adminPassword = savedAdminPassword ?? 'admin';
+
+      // Проверяем введенные данные с данными администратора
+      if (nameController.text.trim() == adminName &&
+          passwordController.text.trim() == adminPassword) {
+        // АДМИНИСТРАТОР - перенаправляем в админ-меню
+        if (!mounted) return;
+        _showSuccess('Вход выполнен как администратор!');
+
+        // Добавляем небольшую задержку для лучшего UX
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminMenu()),
+        );
+        return;
+      }
+
+      // ВТОРОЕ: Если не администратор, проверяем как магазин/поставщик
+      final String endpoint = isSupplier ? '/suppliers/login' : '/stores/login';
+
+      final response = await http.post(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-App-Version': appVersion,
+        },
+        body: jsonEncode({
+          'name': nameController.text,
+          'password': passwordController.text,
+        }),
+      );
+
+      // Проверяем статус 426 - требуется обновление
+      if (response.statusCode == 426) {
+        _showUpdateRequired();
+        return;
+      }
 
       if (response.statusCode == 200) {
-        final List<dynamic> users = jsonDecode(response.body);
+        final user = jsonDecode(response.body);
 
-        dynamic foundUser;
-        for (var user in users) {
-          if (user['name'] == nameController.text) {
-            foundUser = user;
-            break;
-          }
-        }
+        if (!mounted) return;
+        _showSuccess('Вход выполнен успешно!');
 
-        if (foundUser != null) {
-          if (foundUser['password'] == passwordController.text) {
-            if (!mounted) return;
-            _showSuccess('Вход выполнен успешно!');
-
-            if (isSupplier) {
-              if (!mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => SupplierMenu(supplier: foundUser),
-                ),
-              );
-            } else {
-              if (!mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ShopMenu(store: foundUser),
-                ),
-              );
-            }
-          } else {
-            _showError('Неверный пароль');
-          }
+        if (isSupplier) {
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SupplierMenu(supplier: user),
+            ),
+          );
         } else {
-          _showError('Аккаунт с таким названием не найден');
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => ShopMenu(store: user)),
+          );
         }
+      } else if (response.statusCode == 401) {
+        _showError('Неверное имя пользователя или пароль');
+      } else if (response.statusCode == 400) {
+        _showError('Название и пароль обязательны');
       } else {
         _showError('Ошибка сервера: ${response.statusCode}');
       }
@@ -295,6 +343,25 @@ class _LoginPageState extends State<LoginPage> {
         });
       }
     }
+  }
+
+  void _showUpdateRequired() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Требуется обновление'),
+        content: const Text(
+          'Ваша версия приложения устарела. Пожалуйста, обновите приложение для продолжения работы.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showError(String message) {
