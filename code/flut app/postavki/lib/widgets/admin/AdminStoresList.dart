@@ -169,99 +169,101 @@ class _AdminStoresListState extends State<AdminStoresList> {
         onPressed: _addNewStore,
         child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          // Поиск
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                labelText: 'Поиск магазинов',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchQuery = '');
-                  },
-                ),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ),
-
-          // Информация
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Всего: ${_stores.length}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                if (_searchQuery.isNotEmpty)
-                  Text(
-                    'Найдено: ${filteredStores.length}',
-                    style: const TextStyle(color: Colors.blue),
-                  ),
-              ],
-            ),
-          ),
-
-          // Список
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(_errorMessage!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadStores,
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
-                  )
-                : filteredStores.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.store, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('Нет магазинов'),
-                        SizedBox(height: 8),
-                        Text(
-                          'Нажмите + чтобы добавить новый магазин',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: filteredStores.length,
-                    itemBuilder: (context, index) {
-                      final store = filteredStores[index];
-                      return StoreCard(
-                        store: store,
-                        onEdit: () => _editStore(store),
-                        onDelete: () =>
-                            _deleteStore(store['id'], store['name']),
-                        onViewDetails: () => _viewStoreDetails(store),
-                      );
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Поиск
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: InputDecoration(
+                  labelText: 'Поиск магазинов',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
                     },
                   ),
-          ),
-        ],
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+
+            // Информация
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Всего: ${_stores.length}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  if (_searchQuery.isNotEmpty)
+                    Text(
+                      'Найдено: ${filteredStores.length}',
+                      style: const TextStyle(color: Colors.blue),
+                    ),
+                ],
+              ),
+            ),
+
+            // Список
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.red, size: 64),
+                          const SizedBox(height: 16),
+                          Text(_errorMessage!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadStores,
+                            child: const Text('Повторить'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : filteredStores.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.store, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text('Нет магазинов'),
+                          SizedBox(height: 8),
+                          Text(
+                            'Нажмите + чтобы добавить новый магазин',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredStores.length,
+                      itemBuilder: (context, index) {
+                        final store = filteredStores[index];
+                        return StoreCard(
+                          store: store,
+                          onEdit: () => _editStore(store),
+                          onDelete: () =>
+                              _deleteStore(store['id'], store['name']),
+                          onViewDetails: () => _viewStoreDetails(store),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -341,58 +343,93 @@ class StoreCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListTile(
-        leading: _buildPhotoWidget(),
-        title: Text(
-          store['name'],
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(store['address']),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Chip(
-                  label: Text('Товаров: ${warehouse['productCount'] ?? 0}'),
-                  backgroundColor: Colors.blue.shade50,
-                ),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text('Заказов: ${supplies.length}'),
-                  backgroundColor: Colors.orange.shade50,
-                ),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text('Отзывов: ${reviews.length}'),
-                  backgroundColor: Colors.purple.shade50,
-                ),
-              ],
+            // Фото
+            _buildPhotoWidget(),
+            const SizedBox(width: 12),
+
+            // Текстовая информация и кнопки
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Название
+                  Text(
+                    store['name'],
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Адрес
+                  Text(
+                    store['address'],
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Кнопки
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.info, color: Colors.blue),
+                        onPressed: onViewDetails,
+                        tooltip: 'Подробности',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: onEdit,
+                        tooltip: 'Редактировать',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: onDelete,
+                        tooltip: 'Удалить',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Плашки с данными
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Chip(
+                        label: Text(
+                          'Товаров: ${warehouse['productCount'] ?? 0}',
+                        ),
+                        backgroundColor: Colors.blue.shade50,
+                      ),
+                      Chip(
+                        label: Text('Заказов: ${supplies.length}'),
+                        backgroundColor: Colors.orange.shade50,
+                      ),
+                      Chip(
+                        label: Text('Отзывов: ${reviews.length}'),
+                        backgroundColor: Colors.purple.shade50,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.info, color: Colors.blue),
-              onPressed: onViewDetails,
-              tooltip: 'Подробности',
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.orange),
-              onPressed: onEdit,
-              tooltip: 'Редактировать',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: onDelete,
-              tooltip: 'Удалить',
-            ),
-          ],
-        ),
-        onTap: onViewDetails,
       ),
     );
   }

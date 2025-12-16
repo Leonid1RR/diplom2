@@ -38,15 +38,14 @@ class _AdminMenuState extends State<AdminMenu> {
       setState(() {
         _serverConnected = response.statusCode == 200;
         _serverStatus = _serverConnected
-            ? '✅ Сервер доступен'
-            : '❌ Сервер недоступен';
+            ? 'Сервер доступен'
+            : 'Сервер недоступен';
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _serverConnected = false;
-        _serverStatus =
-            '❌ Ошибка подключения: ${e.toString().split(':').first}';
+        _serverStatus = 'Ошибка подключения: ${e.toString().split(':').first}';
         _isLoading = false;
       });
     }
@@ -77,162 +76,151 @@ class _AdminMenuState extends State<AdminMenu> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Статус сервера
-          Container(
-            color: _serverConnected ? Colors.green[50] : Colors.red[50],
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(
-                  _serverConnected ? Icons.check_circle : Icons.error,
-                  color: _serverConnected ? Colors.green : Colors.red,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Статус сервера
+            Container(
+              color: _serverConnected ? Colors.green[50] : Colors.red[50],
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(
+                    _serverConnected ? Icons.check_circle : Icons.error,
+                    color: _serverConnected ? Colors.green : Colors.red,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _serverStatus,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: _serverConnected ? Colors.green : Colors.red,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          GlobalConfig.baseUrl,
+                          style: const TextStyle(fontSize: 12),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_isLoading)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8),
+                      child: SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            Expanded(
+              child: ListView(
+                children: [
+                  // Управление базой данных
+                  _buildSectionCard(
+                    title: 'Управление базой данных',
                     children: [
-                      Text(
-                        _serverStatus,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: _serverConnected ? Colors.green : Colors.red,
+                      _buildMenuButton(
+                        icon: Icons.local_shipping,
+                        label: 'Поставщики',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AdminSuppliersList(),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        GlobalConfig.baseUrl,
-                        style: const TextStyle(fontSize: 12),
-                        overflow: TextOverflow.ellipsis,
+                      _buildMenuButton(
+                        icon: Icons.store,
+                        label: 'Магазины',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AdminStoresList(),
+                          ),
+                        ),
+                      ),
+                      _buildMenuButton(
+                        icon: Icons.inventory,
+                        label: 'Партии товаров',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AdminBatchesList(),
+                          ),
+                        ),
+                      ),
+                      _buildMenuButton(
+                        icon: Icons.shopping_cart,
+                        label: 'Заказы/Поставки',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AdminSuppliesList(),
+                          ),
+                        ),
+                      ),
+                      _buildMenuButton(
+                        icon: Icons.reviews,
+                        label: 'Отзывы',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AdminReviewsList(),
+                          ),
+                        ),
+                      ),
+                      _buildMenuButton(
+                        icon: Icons.support_agent,
+                        label: 'Поддержка',
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const AdminSupportMessagesList(),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-                if (_isLoading)
-                  const Padding(
-                    padding: EdgeInsets.only(left: 8),
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+
+                  // Настройки
+                  _buildSectionCard(
+                    title: 'Настройки',
+                    children: [
+                      _buildMenuButton(
+                        icon: Icons.person,
+                        label: 'Логин администратора',
+                        onTap: () => _changeAdminLogin(context),
+                      ),
+                      _buildMenuButton(
+                        icon: Icons.lock,
+                        label: 'Пароль администратора',
+                        onTap: () => _changeAdminPassword(context),
+                      ),
+                      _buildMenuButton(
+                        icon: Icons.dns,
+                        label: 'Адрес сервера',
+                        onTap: () => _changeServerAddress(context),
+                        color: Colors.blue,
+                      ),
+                    ],
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-
-          Expanded(
-            child: ListView(
-              children: [
-                // Управление базой данных
-                _buildSectionCard(
-                  title: 'Управление базой данных',
-                  children: [
-                    _buildMenuButton(
-                      icon: Icons.local_shipping,
-                      label: 'Поставщики',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AdminSuppliersList(),
-                        ),
-                      ),
-                    ),
-                    _buildMenuButton(
-                      icon: Icons.store,
-                      label: 'Магазины',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AdminStoresList(),
-                        ),
-                      ),
-                    ),
-                    _buildMenuButton(
-                      icon: Icons.inventory,
-                      label: 'Партии товаров',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AdminBatchesList(),
-                        ),
-                      ),
-                    ),
-                    _buildMenuButton(
-                      icon: Icons.shopping_cart,
-                      label: 'Заказы/Поставки',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AdminSuppliesList(),
-                        ),
-                      ),
-                    ),
-                    // Commented out until you create the AdminOrdersList class
-                    /*
-                    _buildMenuButton(
-                      icon: Icons.shopping_cart,
-                      label: 'Заказы',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AdminOrdersList(),
-                        ),
-                      ),
-                    ),
-                    */
-                    _buildMenuButton(
-                      icon: Icons.reviews,
-                      label: 'Отзывы',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AdminReviewsList(),
-                        ),
-                      ),
-                    ),
-                    _buildMenuButton(
-                      icon: Icons.support_agent,
-                      label: 'Поддержка',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const AdminSupportMessagesList(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Настройки
-                _buildSectionCard(
-                  title: 'Настройки',
-                  children: [
-                    _buildMenuButton(
-                      icon: Icons.person,
-                      label: 'Логин администратора',
-                      onTap: () => _changeAdminLogin(context),
-                    ),
-                    _buildMenuButton(
-                      icon: Icons.lock,
-                      label: 'Пароль администратора',
-                      onTap: () => _changeAdminPassword(context),
-                    ),
-                    _buildMenuButton(
-                      icon: Icons.dns,
-                      label: 'Адрес сервера',
-                      onTap: () => _changeServerAddress(context),
-                      color: Colors.blue,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -414,15 +402,15 @@ class _AdminMenuState extends State<AdminMenu> {
               controller: controller,
               decoration: const InputDecoration(
                 labelText: 'Адрес сервера',
-                hintText: 'https://сервер:порт',
+                hintText: 'http(https)://serverlink.com',
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
-              'Формат: https://домен:порт\nили http://IP:порт',
+            /*const Text(
+              'Формат: http(https)://serverlink.com',
               style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            ),*/
           ],
         ),
         actions: [

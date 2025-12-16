@@ -161,103 +161,105 @@ class _AdminSuppliersListState extends State<AdminSuppliersList> {
         onPressed: _addNewSupplier,
         child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          // Поиск
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                labelText: 'Поиск поставщиков',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchQuery = '');
-                  },
-                ),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ),
-
-          // Информация
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Всего: ${_suppliers.length}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                if (_searchQuery.isNotEmpty)
-                  Text(
-                    'Найдено: ${filteredSuppliers.length}',
-                    style: const TextStyle(color: Colors.blue),
-                  ),
-              ],
-            ),
-          ),
-
-          // Список
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(_errorMessage!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadSuppliers,
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
-                  )
-                : filteredSuppliers.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.local_shipping,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 16),
-                        Text('Нет поставщиков'),
-                        SizedBox(height: 8),
-                        Text(
-                          'Нажмите + чтобы добавить нового поставщика',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: filteredSuppliers.length,
-                    itemBuilder: (context, index) {
-                      final supplier = filteredSuppliers[index];
-                      return SupplierCard(
-                        supplier: supplier,
-                        onEdit: () => _editSupplier(supplier),
-                        onDelete: () =>
-                            _deleteSupplier(supplier['id'], supplier['name']),
-                        onViewDetails: () => _viewSupplierDetails(supplier),
-                      );
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Поиск
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: InputDecoration(
+                  labelText: 'Поиск поставщиков',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
                     },
                   ),
-          ),
-        ],
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+
+            // Информация
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Всего: ${_suppliers.length}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  if (_searchQuery.isNotEmpty)
+                    Text(
+                      'Найдено: ${filteredSuppliers.length}',
+                      style: const TextStyle(color: Colors.blue),
+                    ),
+                ],
+              ),
+            ),
+
+            // Список
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.red, size: 64),
+                          const SizedBox(height: 16),
+                          Text(_errorMessage!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadSuppliers,
+                            child: const Text('Повторить'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : filteredSuppliers.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.local_shipping,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text('Нет поставщиков'),
+                          SizedBox(height: 8),
+                          Text(
+                            'Нажмите + чтобы добавить нового поставщика',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredSuppliers.length,
+                      itemBuilder: (context, index) {
+                        final supplier = filteredSuppliers[index];
+                        return SupplierCard(
+                          supplier: supplier,
+                          onEdit: () => _editSupplier(supplier),
+                          onDelete: () =>
+                              _deleteSupplier(supplier['id'], supplier['name']),
+                          onViewDetails: () => _viewSupplierDetails(supplier),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -333,55 +335,91 @@ class SupplierCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListTile(
-        leading: _buildPhotoWidget(),
-        title: Text(
-          supplier['name'],
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(supplier['address']),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Chip(
-                  label: Text('Партий: ${supplier['batchCount'] ?? 0}'),
-                  backgroundColor: Colors.blue[50],
-                ),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text(
-                    'Поставок: ${(supplier['supplies'] as List).length}',
+            // Фото
+            _buildPhotoWidget(),
+            const SizedBox(width: 12),
+
+            // Текстовая информация и кнопки
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Название
+                  Text(
+                    supplier['name'],
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
-                  backgroundColor: Colors.green[50],
-                ),
-              ],
+                  const SizedBox(height: 4),
+
+                  // Адрес
+                  Text(
+                    supplier['address'],
+                    style: TextStyle(color: Colors.grey[700]),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Кнопки
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.info, color: Colors.blue),
+                        onPressed: onViewDetails,
+                        tooltip: 'Подробности',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: onEdit,
+                        tooltip: 'Редактировать',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: onDelete,
+                        tooltip: 'Удалить',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Плашки с данными
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Chip(
+                        label: Text(
+                          'Партий: ${(supplier['batches'] as List).length}',
+                        ),
+                        backgroundColor: Colors.blue[50],
+                      ),
+                      Chip(
+                        label: Text(
+                          'Поставок: ${(supplier['supplies'] as List).length}',
+                        ),
+                        backgroundColor: Colors.green[50],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.info, color: Colors.blue),
-              onPressed: onViewDetails,
-              tooltip: 'Подробности',
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.orange),
-              onPressed: onEdit,
-              tooltip: 'Редактировать',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: onDelete,
-              tooltip: 'Удалить',
-            ),
-          ],
-        ),
-        onTap: onViewDetails,
       ),
     );
   }
@@ -407,7 +445,6 @@ class _SupplierEditDialogState extends State<SupplierEditDialog> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _batchCountController = TextEditingController();
   File? _selectedImage;
   String? _photoData;
   bool _isLoading = false;
@@ -420,8 +457,6 @@ class _SupplierEditDialogState extends State<SupplierEditDialog> {
       _addressController.text = widget.supplier!['address'];
       _descriptionController.text = widget.supplier!['description'] ?? '';
       _passwordController.text = widget.supplier!['password'];
-      _batchCountController.text = (widget.supplier!['batchCount'] ?? 0)
-          .toString();
       _photoData = widget.supplier!['photo'];
     }
   }
@@ -485,7 +520,6 @@ class _SupplierEditDialogState extends State<SupplierEditDialog> {
         'address': _addressController.text,
         'description': _descriptionController.text,
         'password': _passwordController.text,
-        'batchCount': int.tryParse(_batchCountController.text) ?? 0,
         'photo': _photoData,
       };
 
@@ -630,17 +664,6 @@ class _SupplierEditDialogState extends State<SupplierEditDialog> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 12),
-
-            // Количество партий
-            TextField(
-              controller: _batchCountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Количество партий',
-                border: OutlineInputBorder(),
-              ),
-            ),
           ],
         ),
       ),
@@ -760,7 +783,7 @@ class SupplierDetailsDialog extends StatelessWidget {
               _buildInfoRow('Адрес:', supplier['address']),
               _buildInfoRow('Описание:', supplier['description'] ?? 'Нет'),
               _buildInfoRow('Пароль:', supplier['password']),
-              _buildInfoRow('Кол-во партий:', '${supplier['batchCount'] ?? 0}'),
+              _buildInfoRow('Кол-во партий:', '${batches.length}'),
               const SizedBox(height: 8),
 
               // Статистика
@@ -788,7 +811,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                       (batch) => Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
-                          '• ${batch['name']} (${batch['productCount']} шт)',
+                          '• ${batch['name']} (${batch['itemsPerBatch']} шт/партия)',
                         ),
                       ),
                     ),

@@ -194,169 +194,172 @@ class _AdminSuppliesListState extends State<AdminSuppliesList> {
         onPressed: _addNewSupply,
         child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          // Фильтры и поиск
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  onChanged: (value) => setState(() => _searchQuery = value),
-                  decoration: InputDecoration(
-                    labelText: 'Поиск поставок',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Фильтры и поиск
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                    decoration: InputDecoration(
+                      labelText: 'Поиск поставок',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      ),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _filterStatus,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'all',
+                              child: Text('Все статусы'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'оформлен',
+                              child: Text('Оформлен'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'отправлен',
+                              child: Text('Отправлен'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'получено',
+                              child: Text('Получено'),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => _filterStatus = value!),
+                          decoration: const InputDecoration(
+                            labelText: 'Статус',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _sortBy,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'id_desc',
+                              child: Text('ID (новые)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'id_asc',
+                              child: Text('ID (старые)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'status_asc',
+                              child: Text('Статус (А-Я)'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'status_desc',
+                              child: Text('Статус (Я-А)'),
+                            ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => _sortBy = value!),
+                          decoration: const InputDecoration(
+                            labelText: 'Сортировка',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // Информация
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Всего: ${_supplies.length}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  if (_searchQuery.isNotEmpty || _filterStatus != 'all')
+                    Text(
+                      'Найдено: ${filteredSupplies.length}',
+                      style: const TextStyle(color: Colors.blue),
+                    ),
+                ],
+              ),
+            ),
+
+            // Список
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.red, size: 64),
+                          const SizedBox(height: 16),
+                          Text(_errorMessage!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadSupplies,
+                            child: const Text('Повторить'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : filteredSupplies.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.local_shipping,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text('Нет поставок'),
+                          SizedBox(height: 8),
+                          Text(
+                            'Нажмите + чтобы добавить новую поставку',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredSupplies.length,
+                      itemBuilder: (context, index) {
+                        final supply = filteredSupplies[index];
+                        return SupplyCard(
+                          supply: supply,
+                          onEdit: () => _editSupply(supply),
+                          onDelete: () => _deleteSupply(supply['id']),
+                          onViewDetails: () => _viewSupplyDetails(supply),
+                        );
                       },
                     ),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _filterStatus,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'all',
-                            child: Text('Все статусы'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'оформлен',
-                            child: Text('Оформлен'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'отправлен',
-                            child: Text('Отправлен'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'получено',
-                            child: Text('Получено'),
-                          ),
-                        ],
-                        onChanged: (value) =>
-                            setState(() => _filterStatus = value!),
-                        decoration: const InputDecoration(
-                          labelText: 'Статус',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _sortBy,
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'id_desc',
-                            child: Text('ID (новые)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'id_asc',
-                            child: Text('ID (старые)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'status_asc',
-                            child: Text('Статус (А-Я)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'status_desc',
-                            child: Text('Статус (Я-А)'),
-                          ),
-                        ],
-                        onChanged: (value) => setState(() => _sortBy = value!),
-                        decoration: const InputDecoration(
-                          labelText: 'Сортировка',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
             ),
-          ),
-
-          // Информация
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Всего: ${_supplies.length}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                if (_searchQuery.isNotEmpty || _filterStatus != 'all')
-                  Text(
-                    'Найдено: ${filteredSupplies.length}',
-                    style: const TextStyle(color: Colors.blue),
-                  ),
-              ],
-            ),
-          ),
-
-          // Список
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(_errorMessage!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadSupplies,
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
-                  )
-                : filteredSupplies.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.local_shipping,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 16),
-                        Text('Нет поставок'),
-                        SizedBox(height: 8),
-                        Text(
-                          'Нажмите + чтобы добавить новую поставку',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: filteredSupplies.length,
-                    itemBuilder: (context, index) {
-                      final supply = filteredSupplies[index];
-                      return SupplyCard(
-                        supply: supply,
-                        onEdit: () => _editSupply(supply),
-                        onDelete: () => _deleteSupply(supply['id']),
-                        onViewDetails: () => _viewSupplyDetails(supply),
-                      );
-                    },
-                  ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -390,79 +393,6 @@ class SupplyCard extends StatelessWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListTile(
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Color(_getStatusColor(supply['status']).value).withAlpha(50),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            _getStatusIcon(supply['status']),
-            color: _getStatusColor(supply['status']),
-          ),
-        ),
-        title: Text(
-          'Поставка #${supply['id']}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'От: ${supply['fromSupplier']?['name'] ?? 'Неизвестно'}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            Text(
-              'Кому: ${supply['toStore']?['name'] ?? 'Неизвестно'}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            Chip(
-              label: Text(
-                supply['status'].toUpperCase(),
-                style: TextStyle(
-                  color: _getStatusColor(supply['status']),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 10,
-                ),
-              ),
-              backgroundColor: Color(
-                _getStatusColor(supply['status']).value,
-              ).withAlpha(25),
-            ),
-          ],
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.info, color: Colors.blue),
-              onPressed: onViewDetails,
-              tooltip: 'Подробности',
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.orange),
-              onPressed: onEdit,
-              tooltip: 'Редактировать',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: onDelete,
-              tooltip: 'Удалить',
-            ),
-          ],
-        ),
-        onTap: onViewDetails,
-      ),
-    );
-  }
-
   IconData _getStatusIcon(String status) {
     switch (status) {
       case 'оформлен':
@@ -474,6 +404,113 @@ class SupplyCard extends StatelessWidget {
       default:
         return Icons.info;
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Иконка статуса
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Color(
+                  _getStatusColor(supply['status']).value,
+                ).withAlpha(50),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _getStatusIcon(supply['status']),
+                color: _getStatusColor(supply['status']),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Текстовая информация и кнопки
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Заголовок
+                  Text(
+                    'Поставка #${supply['id']}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Поставщик
+                  Text(
+                    'От: ${supply['fromSupplier']?['name'] ?? 'Неизвестно'}',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                  ),
+
+                  // Магазин
+                  Text(
+                    'Кому: ${supply['toStore']?['name'] ?? 'Неизвестно'}',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Кнопки
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.info, color: Colors.blue),
+                        onPressed: onViewDetails,
+                        tooltip: 'Подробности',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: onEdit,
+                        tooltip: 'Редактировать',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: onDelete,
+                        tooltip: 'Удалить',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Статус
+                  Chip(
+                    label: Text(
+                      supply['status'].toUpperCase(),
+                      style: TextStyle(
+                        color: _getStatusColor(supply['status']),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                    backgroundColor: Color(
+                      _getStatusColor(supply['status']).value,
+                    ).withAlpha(25),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

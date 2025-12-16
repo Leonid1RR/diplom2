@@ -156,99 +156,101 @@ class _AdminBatchesListState extends State<AdminBatchesList> {
         onPressed: _addNewBatch,
         child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          // Поиск
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                labelText: 'Поиск партий',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchQuery = '');
-                  },
-                ),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ),
-
-          // Информация
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Всего: ${_batches.length}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                if (_searchQuery.isNotEmpty)
-                  Text(
-                    'Найдено: ${filteredBatches.length}',
-                    style: const TextStyle(color: Colors.blue),
-                  ),
-              ],
-            ),
-          ),
-
-          // Список
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(_errorMessage!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadBatches,
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
-                  )
-                : filteredBatches.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.inventory, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('Нет партий товаров'),
-                        SizedBox(height: 8),
-                        Text(
-                          'Нажмите + чтобы добавить новую партию',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: filteredBatches.length,
-                    itemBuilder: (context, index) {
-                      final batch = filteredBatches[index];
-                      return BatchCard(
-                        batch: batch,
-                        onEdit: () => _editBatch(batch),
-                        onDelete: () =>
-                            _deleteBatch(batch['id'], batch['name']),
-                        onViewDetails: () => _viewBatchDetails(batch),
-                      );
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Поиск
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: InputDecoration(
+                  labelText: 'Поиск партий',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
                     },
                   ),
-          ),
-        ],
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+
+            // Информация
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Всего: ${_batches.length}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  if (_searchQuery.isNotEmpty)
+                    Text(
+                      'Найдено: ${filteredBatches.length}',
+                      style: const TextStyle(color: Colors.blue),
+                    ),
+                ],
+              ),
+            ),
+
+            // Список
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.red, size: 64),
+                          const SizedBox(height: 16),
+                          Text(_errorMessage!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadBatches,
+                            child: const Text('Повторить'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : filteredBatches.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.inventory, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text('Нет партий товаров'),
+                          SizedBox(height: 8),
+                          Text(
+                            'Нажмите + чтобы добавить новую партию',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredBatches.length,
+                      itemBuilder: (context, index) {
+                        final batch = filteredBatches[index];
+                        return BatchCard(
+                          batch: batch,
+                          onEdit: () => _editBatch(batch),
+                          onDelete: () =>
+                              _deleteBatch(batch['id'], batch['name']),
+                          onViewDetails: () => _viewBatchDetails(batch),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -324,61 +326,91 @@ class BatchCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListTile(
-        leading: _buildPhotoWidget(),
-        title: Text(
-          batch['name'],
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Поставщик: ${batch['supplier']?['name'] ?? 'Неизвестно'}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Chip(
-                  label: Text('${batch['price']} руб'),
-                  backgroundColor: Colors.green[50],
-                ),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text('${batch['productCount']} шт'),
-                  backgroundColor: Colors.blue[50],
-                ),
-                const SizedBox(width: 8),
-                Chip(
-                  label: Text('${batch['expiration']} дн.'),
-                  backgroundColor: Colors.purple[50],
-                ),
-              ],
+            // Фото
+            _buildPhotoWidget(),
+            const SizedBox(width: 12),
+
+            // Текстовая информация и кнопки
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Название
+                  Text(
+                    batch['name'],
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Поставщик
+                  Text(
+                    'Поставщик: ${batch['supplier']?['name'] ?? 'Неизвестно'}',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Кнопки
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.info, color: Colors.blue),
+                        onPressed: onViewDetails,
+                        tooltip: 'Подробности',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: onEdit,
+                        tooltip: 'Редактировать',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: onDelete,
+                        tooltip: 'Удалить',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Плашки с данными
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Chip(
+                        label: Text('${batch['price']} руб'),
+                        backgroundColor: Colors.green[50],
+                      ),
+                      Chip(
+                        label: Text('${batch['itemsPerBatch']} шт/партия'),
+                        backgroundColor: Colors.blue[50],
+                      ),
+                      Chip(
+                        label: Text('${batch['expiration']} дн.'),
+                        backgroundColor: Colors.purple[50],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.info, color: Colors.blue),
-              onPressed: onViewDetails,
-              tooltip: 'Подробности',
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.orange),
-              onPressed: onEdit,
-              tooltip: 'Редактировать',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: onDelete,
-              tooltip: 'Удалить',
-            ),
-          ],
-        ),
-        onTap: onViewDetails,
       ),
     );
   }
@@ -402,7 +434,10 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
   final TextEditingController _expirationController = TextEditingController(
     text: '30',
   );
-  final TextEditingController _productCountController = TextEditingController(
+  final TextEditingController _itemsPerBatchController = TextEditingController(
+    text: '10',
+  );
+  final TextEditingController _quantityController = TextEditingController(
     text: '1',
   );
   final TextEditingController _supplierIdController = TextEditingController();
@@ -421,7 +456,8 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
       _descriptionController.text = widget.batch!['description'] ?? '';
       _priceController.text = widget.batch!['price'].toString();
       _expirationController.text = widget.batch!['expiration'].toString();
-      _productCountController.text = widget.batch!['productCount'].toString();
+      _itemsPerBatchController.text = widget.batch!['itemsPerBatch'].toString();
+      _quantityController.text = widget.batch!['quantity'].toString();
       _supplierIdController.text = widget.batch!['supplierId'].toString();
       _photoData = widget.batch!['photo'];
     }
@@ -483,14 +519,51 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
   }
 
   Future<void> _saveBatch() async {
-    if (_nameController.text.isEmpty ||
-        _supplierIdController.text.isEmpty ||
-        _priceController.text.isEmpty) {
+    // Проверяем обязательные поля
+    if (_nameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Заполните обязательные поля (Название, ID поставщика, Цена)',
-          ),
+          content: Text('Название обязательно'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_supplierIdController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ID поставщика обязательно'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_priceController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Цена обязательна'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_itemsPerBatchController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Количество товаров в партии обязательно'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_quantityController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Количество партий обязательно'),
           backgroundColor: Colors.red,
         ),
       );
@@ -500,15 +573,25 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
     setState(() => _isLoading = true);
 
     try {
+      // Преобразуем данные в правильные типы
+      final price = double.tryParse(_priceController.text) ?? 0.0;
+      final expiration = int.tryParse(_expirationController.text) ?? 30;
+      final itemsPerBatch = int.tryParse(_itemsPerBatchController.text) ?? 10;
+      final quantity = int.tryParse(_quantityController.text) ?? 1;
+      final supplierId = int.tryParse(_supplierIdController.text) ?? 0;
+
       final data = {
         'name': _nameController.text,
         'description': _descriptionController.text,
-        'price': double.tryParse(_priceController.text) ?? 0,
-        'expiration': int.tryParse(_expirationController.text) ?? 30,
-        'productCount': int.tryParse(_productCountController.text) ?? 1,
-        'supplierId': int.parse(_supplierIdController.text),
+        'expiration': expiration,
+        'price': price,
         'photo': _photoData,
+        'itemsPerBatch': itemsPerBatch,
+        'quantity': quantity,
+        'supplierId': supplierId,
       };
+
+      print('Отправляемые данные: $data');
 
       final response = widget.batch == null
           ? await http.post(
@@ -524,6 +607,9 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
               body: json.encode(data),
             );
 
+      print('Код ответа: ${response.statusCode}');
+      print('Тело ответа: ${response.body}');
+
       if (response.statusCode == 200) {
         widget.onBatchUpdated();
         if (mounted) {
@@ -538,7 +624,9 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
           );
         }
       } else {
-        throw Exception('Ошибка сервера: ${response.statusCode}');
+        throw Exception(
+          'Ошибка сервера: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -546,6 +634,7 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
           SnackBar(content: Text('Ошибка: $e'), backgroundColor: Colors.red),
         );
       }
+      print('Ошибка при сохранении: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -555,6 +644,10 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final itemsPerBatch = int.tryParse(_itemsPerBatchController.text) ?? 10;
+    final quantity = int.tryParse(_quantityController.text) ?? 1;
+    final totalItems = itemsPerBatch * quantity;
+
     return AlertDialog(
       title: Text(
         widget.batch == null ? 'Новая партия товаров' : 'Редактировать партию',
@@ -633,7 +726,7 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
               controller: _priceController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Цена*',
+                labelText: 'Цена за партию*',
                 border: OutlineInputBorder(),
                 suffixText: 'руб',
               ),
@@ -645,20 +738,70 @@ class _BatchEditDialogState extends State<BatchEditDialog> {
               controller: _expirationController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Срок годности',
+                labelText: 'Срок годности товаров',
                 border: OutlineInputBorder(),
                 suffixText: 'дней',
               ),
             ),
             const SizedBox(height: 12),
 
-            // Количество товаров
+            // Товаров в партии
             TextField(
-              controller: _productCountController,
+              controller: _itemsPerBatchController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Количество в партии',
+                labelText: 'Товаров в одной партии*',
                 border: OutlineInputBorder(),
+                hintText: '10',
+              ),
+              onChanged: (value) => setState(() {}),
+            ),
+            const SizedBox(height: 12),
+
+            // Количество таких партий
+            TextField(
+              controller: _quantityController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Количество таких партий*',
+                border: OutlineInputBorder(),
+                hintText: '1',
+              ),
+              onChanged: (value) => setState(() {}),
+            ),
+            const SizedBox(height: 12),
+
+            // Информация о расчетах
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.calculate, color: Colors.blue[700], size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'ИТОГО:',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$itemsPerBatch товаров × $quantity партий = $totalItems товаров',
+                    style: TextStyle(
+                      color: Colors.blue[800],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
@@ -780,6 +923,11 @@ class BatchDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final itemsPerBatch = batch['itemsPerBatch'] ?? 0;
+    final quantity = batch['quantity'] ?? 0;
+    final totalItems = itemsPerBatch * quantity;
+    final totalPrice = (batch['price'] ?? 0) * quantity;
+
     return Dialog(
       child: Container(
         width: double.maxFinite,
@@ -795,7 +943,7 @@ class BatchDetailsDialog extends StatelessWidget {
 
               Center(
                 child: Text(
-                  batch['name'],
+                  batch['name'] ?? 'Без названия',
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -805,17 +953,24 @@ class BatchDetailsDialog extends StatelessWidget {
               const SizedBox(height: 8),
 
               // Основная информация
-              _buildInfoRow('ID:', batch['id'].toString()),
+              _buildInfoRow('ID:', batch['id']?.toString() ?? 'Неизвестно'),
               _buildInfoRow('Описание:', batch['description'] ?? 'Нет'),
-              _buildInfoRow('Цена:', '${batch['price']} руб'),
+              _buildInfoRow('Цена за партию:', '${batch['price'] ?? 0} руб'),
+              _buildInfoRow('Товаров в партии:', '$itemsPerBatch шт'),
+              _buildInfoRow('Количество партий:', '$quantity шт'),
               _buildInfoRow(
-                'Количество в партии:',
-                '${batch['productCount']} шт',
+                'Срок годности:',
+                '${batch['expiration'] ?? 0} дней',
               ),
-              _buildInfoRow('Срок годности:', '${batch['expiration']} дней'),
-              _buildInfoRow('Поставщик ID:', batch['supplierId'].toString()),
+              _buildInfoRow(
+                'Поставщик ID:',
+                batch['supplierId']?.toString() ?? 'Неизвестно',
+              ),
               if (batch['supplier'] != null)
-                _buildInfoRow('Поставщик:', batch['supplier']['name']),
+                _buildInfoRow(
+                  'Поставщик:',
+                  batch['supplier']['name'] ?? 'Неизвестно',
+                ),
               const SizedBox(height: 8),
 
               // Расчеты
@@ -826,8 +981,12 @@ class BatchDetailsDialog extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _buildInfoRow(
-                'Стоимость партии:',
-                '${batch['price']} × ${batch['productCount']} = ${batch['price'] * batch['productCount']} руб',
+                'Всего товаров:',
+                '$itemsPerBatch × $quantity = $totalItems шт',
+              ),
+              _buildInfoRow(
+                'Общая стоимость:',
+                '${batch['price'] ?? 0} × $quantity = $totalPrice руб',
               ),
             ],
           ),
@@ -843,7 +1002,7 @@ class BatchDetailsDialog extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: 140,
             child: Text(
               label,
               style: const TextStyle(

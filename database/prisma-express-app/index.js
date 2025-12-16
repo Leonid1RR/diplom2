@@ -8,6 +8,14 @@ const REQUIRED_APP_VERSION = "1.2.0";
 const prisma = new PrismaClient();
 const app = express();
 
+// Вспомогательная функция для форматирования срока годности
+const formatExpiration = (expiration) => {
+  if (!expiration || expiration <= 0) {
+    return null; // или '' для пустой строки
+  }
+  return expiration;
+};
+
 // Настройка логирования
 const logger = {
   info: (message, data = {}) => {
@@ -242,8 +250,9 @@ app.get('/api/supplies/:id/invoice', async (req, res) => {
     doc.text(`Количество партий: ${orderData.quantity || 1}`, 50, 480);
     doc.text(`Единиц в партии: ${orderData.itemsPerBatch || 1}`, 50, 495);
     doc.text(`Всего единиц: ${(orderData.quantity || 1) * (orderData.itemsPerBatch || 1)}`, 50, 510);
-    doc.text(`Срок годности: ${orderData.expiration || 30} дней`, 50, 525);
-    doc.text(`Общая стоимость: ${orderData.totalPrice || 0} руб.`, 50, 540);
+if (orderData.expiration && orderData.expiration > 0) {
+  doc.text(`Срок годности: ${orderData.expiration} дней`, 50, 525);
+}    doc.text(`Общая стоимость: ${orderData.totalPrice || 0} руб.`, 50, 540);
     
     doc.moveDown(2);
 
@@ -507,7 +516,8 @@ app.post('/warehouses/:storeId/products', async (req, res) => {
         data: { 
           name, 
           description: description || '', 
-          expiration: parseInt(expiration) || 30, 
+          // Изменение здесь: принимаем 0 или null как отсутствие срока
+          expiration: expiration && parseInt(expiration) > 0 ? parseInt(expiration) : 0, 
           price: parseFloat(price) || 0, 
           photo: photo || null 
         },
@@ -723,7 +733,7 @@ app.get('/suppliers', async (req, res) => {
 
 app.post('/suppliers', async (req, res) => {
   try {
-    const { name, password, address, description, batchCount, photo } = req.body;
+    const { name, password, address, description, photo } = req.body;
     logger.info('Создание нового поставщика', { name, address });
     
     if (!name || !password || !address) {
@@ -738,7 +748,6 @@ app.post('/suppliers', async (req, res) => {
         address, 
         description: description || '', 
         photo: photo || null,
-        batchCount: batchCount || 0
       },
     });
     
@@ -816,13 +825,33 @@ app.delete('/suppliers/:id', async (req, res) => {
 app.get('/batches', async (req, res) => {
   try {
     logger.info('Получение списка партий товаров');
-    const batches = await prisma.productBatch.findMany({ 
+    const batches = await prisma.batch.findMany({ 
       include: { 
         supplier: true 
       } 
     });
     logger.success('Партии товаров успешно получены', { count: batches.length });
-    res.json(batches);
+    
+    // Возвращаем в формате, ожидаемом клиентом
+    const formattedBatches = batches.map(batch => ({
+      ...batch,
+      // Для совместимости со старым кодом
+      productCount: batch.quantity * batch.itemsPerBatch,
+      id: batch.id,
+      name: batch.name,
+      description: batch.description,
+      expiration: batch.expiration,
+      price: batch.price,
+      photo: batch.photo,
+      itemsPerBatch: batch.itemsPerBatch,
+      quantity: batch.quantity,
+      supplierId: batch.supplierId,
+      supplier: batch.supplier,
+      createdAt: batch.createdAt,
+      updatedAt: batch.updatedAt
+    }));
+    
+    res.json(formattedBatches);
   } catch (error) {
     logger.error('Ошибка при получении партий', { error: error.message });
     res.status(500).json({ error: 'Внутренняя ошибка сервера' });
@@ -831,45 +860,81 @@ app.get('/batches', async (req, res) => {
 
 app.post('/batches', async (req, res) => {
   try {
-    const { name, description, expiration, price, photo, productCount, supplierId } = req.body;
-    logger.info('Создание партии товаров', { name, supplierId });
+    const { 
+      name, 
+      description, 
+      expiration, 
+      price, 
+      photo, 
+      itemsPerBatch, 
+      quantity, 
+      supplierId 
+    } = req.body;
+    
+    logger.info('Создание партии товаров', { 
+      name, 
+      supplierId, 
+      quantity, 
+      itemsPerBatch 
+    });
     
     if (!name || !supplierId) {
       logger.warn('Не указаны обязательные поля для создания партии');
       return res.status(400).json({ error: 'Название и supplierId обязательны' });
     }
 
-    const batch = await prisma.productBatch.create({
+    const batch = await prisma.batch.create({
       data: { 
         name, 
         description: description || '', 
-        expiration: expiration || 0, 
+        // Изменение здесь: принимаем 0 или null как отсутствие срока
+        expiration: expiration && parseInt(expiration) > 0 ? parseInt(expiration) : 0, 
         price: price || 0, 
         photo: photo || null, 
-        productCount: productCount || 1, 
+        itemsPerBatch: parseInt(itemsPerBatch) || 1,
+        quantity: parseInt(quantity) || 1,
         supplierId: parseInt(supplierId) 
       },
+      include: {
+        supplier: true
+      }
     });
     
     logger.success('Партия товаров успешно создана', { 
       batchId: batch.id, 
       name: batch.name, 
-      supplierId: batch.supplierId 
+      supplierId: batch.supplierId,
+      quantity: batch.quantity,
+      itemsPerBatch: batch.itemsPerBatch
     });
-    res.json(batch);
+    
+    res.json({
+      ...batch,
+      productCount: batch.quantity * batch.itemsPerBatch
+    });
   } catch (error) {
     logger.error('Ошибка при создании партии', { error: error.message });
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    res.status(500).json({ error: 'Внутренняя ошибка сервера: ' + error.message });
   }
 });
 
 app.put('/batches/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, expiration, price, photo, productCount, supplierId } = req.body;
+    const { 
+      name, 
+      description, 
+      expiration, 
+      price, 
+      photo, 
+      itemsPerBatch, 
+      quantity, 
+      supplierId 
+    } = req.body;
+    
     logger.info('Обновление партии товаров', { batchId: id });
     
-    const updated = await prisma.productBatch.update({
+    const updated = await prisma.batch.update({
       where: { id: parseInt(id) },
       data: { 
         name, 
@@ -877,16 +942,33 @@ app.put('/batches/:id', async (req, res) => {
         expiration, 
         price, 
         photo, 
-        productCount, 
+        itemsPerBatch: parseInt(itemsPerBatch) || 1,
+        quantity: parseInt(quantity) || 1,
         supplierId: parseInt(supplierId) 
       },
+      include: {
+        supplier: true
+      }
     });
     
-    logger.success('Партия товаров успешно обновлена', { batchId: id, name: updated.name });
-    res.json(updated);
+    logger.success('Партия товаров успешно обновлена', { 
+      batchId: id, 
+      name: updated.name,
+      quantity: updated.quantity,
+      itemsPerBatch: updated.itemsPerBatch
+    });
+    
+    // Возвращаем в формате, ожидаемом клиентом
+    res.json({
+      ...updated,
+      productCount: updated.quantity * updated.itemsPerBatch
+    });
   } catch (error) {
-    logger.error('Ошибка при обновлении партии', { error: error.message, batchId: id });
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    logger.error('Ошибка при обновлении партии', { 
+      error: error.message, 
+      batchId: id 
+    });
+    res.status(500).json({ error: 'Внутренняя ошибка сервера: ' + error.message });
   }
 });
 
@@ -895,13 +977,29 @@ app.delete('/batches/:id', async (req, res) => {
     const { id } = req.params;
     logger.info('Удаление партии товаров', { batchId: id });
     
-    const deleted = await prisma.productBatch.delete({ where: { id: parseInt(id) } });
+    const deleted = await prisma.batch.delete({ 
+      where: { id: parseInt(id) },
+      include: {
+        supplier: true
+      }
+    });
     
-    logger.success('Партия товаров успешно удалена', { batchId: id, name: deleted.name });
-    res.json(deleted);
+    logger.success('Партия товаров успешно удалена', { 
+      batchId: id, 
+      name: deleted.name 
+    });
+    
+    // Возвращаем в формате, ожидаемом клиентом
+    res.json({
+      ...deleted,
+      productCount: deleted.quantity * deleted.itemsPerBatch
+    });
   } catch (error) {
-    logger.error('Ошибка при удалении партии', { error: error.message, batchId: id });
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    logger.error('Ошибка при удалении партии', { 
+      error: error.message, 
+      batchId: id 
+    });
+    res.status(500).json({ error: 'Внутренняя ошибка сервера: ' + error.message });
   }
 });
 
@@ -1458,82 +1556,6 @@ app.get('/warehouses/store/:storeId/products-grouped', async (req, res) => {
 });
 
 // -------------------- ЛОГИКА ПРОДАЖИ ТОВАРОВ --------------------
-app.post('/warehouses/products/sell-multiple', async (req, res) => {
-  try {
-    const { warehouseIds } = req.body;
-    logger.info('Продажа нескольких товаров', { count: warehouseIds?.length || 0 });
-    
-    if (!warehouseIds || !Array.isArray(warehouseIds) || warehouseIds.length === 0) {
-      logger.warn('Не указан массив warehouseIds для продажи');
-      return res.status(400).json({ error: 'Массив warehouseIds обязателен' });
-    }
-
-    const warehouseProducts = await prisma.productOnWarehouse.findMany({
-      where: {
-        id: {
-          in: warehouseIds.map(id => parseInt(id))
-        }
-      },
-      include: {
-        warehouse: true,
-        product: true
-      }
-    });
-
-    if (warehouseProducts.length === 0) {
-      logger.warn('Товары на складе не найдены для продажи');
-      return res.status(404).json({ error: 'Товары на складе не найдены' });
-    }
-
-    const warehouseGroups = {};
-    warehouseProducts.forEach(item => {
-      if (!warehouseGroups[item.warehouseId]) {
-        warehouseGroups[item.warehouseId] = {
-          count: 0,
-          warehouse: item.warehouse
-        };
-      }
-      warehouseGroups[item.warehouseId].count++;
-    });
-
-    await prisma.productOnWarehouse.deleteMany({
-      where: {
-        id: {
-          in: warehouseIds.map(id => parseInt(id))
-        }
-      }
-    });
-
-    for (const [warehouseId, group] of Object.entries(warehouseGroups)) {
-      await prisma.warehouse.update({
-        where: { id: parseInt(warehouseId) },
-        data: {
-          productCount: {
-            decrement: group.count
-          }
-        }
-      });
-    }
-
-    logger.success('Товары успешно проданы', { 
-      soldCount: warehouseProducts.length,
-      affectedWarehouses: Object.keys(warehouseGroups).length 
-    });
-    
-    res.json({ 
-      message: `Успешно продано ${warehouseProducts.length} товаров`,
-      soldCount: warehouseProducts.length,
-      warehouseUpdates: Object.keys(warehouseGroups).map(id => ({
-        warehouseId: parseInt(id),
-        newCount: warehouseGroups[id].warehouse.productCount - warehouseGroups[id].count
-      }))
-    });
-  } catch (error) {
-    logger.error('Ошибка при продаже нескольких товаров', { error: error.message });
-    res.status(500).json({ error: 'Внутренняя ошибка сервера: ' + error.message });
-  }
-});
-
 app.post('/orders/create', async (req, res) => {
   try {
     const { batchId, storeId, supplierId, quantity } = req.body;
@@ -1541,13 +1563,18 @@ app.post('/orders/create', async (req, res) => {
     
     if (!batchId || !storeId || !supplierId || !quantity) {
       logger.warn('Не указаны обязательные поля для создания заказа');
-      return res.status(400).json({ error: 'Все поля обязательны: batchId, storeId, supplierId, quantity' });
+      return res.status(400).json({ 
+        error: 'Все поля обязательны: batchId, storeId, supplierId, quantity' 
+      });
     }
 
-    const batch = await prisma.productBatch.findFirst({
+    const batch = await prisma.batch.findFirst({
       where: { 
         id: parseInt(batchId),
         supplierId: parseInt(supplierId)
+      },
+      include: {
+        supplier: true
       }
     });
 
@@ -1556,15 +1583,16 @@ app.post('/orders/create', async (req, res) => {
       return res.status(404).json({ error: 'Партия не найдена у данного поставщика' });
     }
 
-    if (batch.productCount < quantity) {
+    // Проверяем доступное количество партий
+    if (batch.quantity < quantity) {
       logger.warn('Недостаточно партий у поставщика', { 
         batchId, 
-        available: batch.productCount, 
+        available: batch.quantity, 
         requested: quantity 
       });
       return res.status(400).json({ 
         error: 'Недостаточно партий у поставщика',
-        available: batch.productCount,
+        available: batch.quantity,
         requested: quantity
       });
     }
@@ -1579,10 +1607,11 @@ app.post('/orders/create', async (req, res) => {
           description: batch.description,
           expiration: batch.expiration,
           quantity: quantity,
-          itemsPerBatch: batch.productCount,
-          totalItems: quantity * batch.productCount,
+          itemsPerBatch: batch.itemsPerBatch,
+          totalItems: quantity * batch.itemsPerBatch,
           totalPrice: batch.price * quantity,
-          supplierPhoto: batch.photo
+          supplierPhoto: batch.photo,
+          supplierName: batch.supplier.name
         }), 
         status: 'оформлен' 
       },
@@ -1652,10 +1681,13 @@ app.post('/orders/send', async (req, res) => {
       return res.status(400).json({ error: 'Неверный формат данных заказа' });
     }
 
-    const batch = await prisma.productBatch.findFirst({
+    const batch = await prisma.batch.findFirst({
       where: { 
         id: orderData.batchId,
         supplierId: supply.fromSupplierId
+      },
+      include: {
+        supplier: true
       }
     });
 
@@ -1664,30 +1696,36 @@ app.post('/orders/send', async (req, res) => {
       return res.status(404).json({ error: 'Партия не найдена' });
     }
 
-    if (batch.productCount < orderData.quantity) {
+    // Проверяем доступное количество партий
+    if (batch.quantity < orderData.quantity) {
       logger.warn('Недостаточно партий у поставщика для отправки', { 
         batchId: orderData.batchId, 
-        available: batch.productCount, 
+        available: batch.quantity, 
         required: orderData.quantity 
       });
       return res.status(400).json({ 
         error: 'Недостаточно партий у поставщика для отправки',
-        available: batch.productCount,
+        available: batch.quantity,
         required: orderData.quantity
       });
     }
 
-    const updatedBatch = await prisma.productBatch.update({
+    // Уменьшаем количество партий
+    const updatedBatch = await prisma.batch.update({
       where: { id: batch.id },
       data: {
-        productCount: batch.productCount - orderData.quantity
+        quantity: batch.quantity - orderData.quantity
+      },
+      include: {
+        supplier: true
       }
     });
 
     const updatedSupply = await prisma.supply.update({
       where: { id: parseInt(supplyId) },
       data: { 
-        status: 'отправлен' 
+        status: 'отправлен',
+        deliveryTime: new Date() // Устанавливаем время отправки
       },
       include: {
         fromSupplier: true,
@@ -1698,16 +1736,23 @@ app.post('/orders/send', async (req, res) => {
     logger.success('Заказ успешно отправлен', { 
       supplyId, 
       batchId: batch.id, 
-      quantitySent: orderData.quantity 
+      quantitySent: orderData.quantity,
+      totalItems: orderData.quantity * batch.itemsPerBatch
     });
     
     res.json({ 
       message: 'Заказ успешно отправлен',
       supply: updatedSupply,
-      updatedBatch: updatedBatch
+      updatedBatch: {
+        ...updatedBatch,
+        productCount: updatedBatch.quantity * updatedBatch.itemsPerBatch
+      }
     });
   } catch (error) {
-    logger.error('Ошибка при отправке заказа', { error: error.message, supplyId });
+    logger.error('Ошибка при отправке заказа', { 
+      error: error.message, 
+      supplyId 
+    });
     res.status(500).json({ error: 'Внутренняя ошибка сервера: ' + error.message });
   }
 });
@@ -1764,7 +1809,7 @@ app.post('/orders/receive', async (req, res) => {
       return res.status(404).json({ error: 'Склад магазина не найден' });
     }
 
-    const totalItems = (orderData.quantity || 1) * (orderData.itemsPerBatch || 1);
+    const totalItems = orderData.quantity * orderData.itemsPerBatch;
     const createdProducts = [];
 
     for (let i = 0; i < totalItems; i++) {
@@ -1800,7 +1845,8 @@ app.post('/orders/receive', async (req, res) => {
     const updatedSupply = await prisma.supply.update({
       where: { id: parseInt(supplyId) },
       data: { 
-        status: 'получено' 
+        status: 'получено',
+        deliveryTime: new Date() // Устанавливаем время получения
       }
     });
 
@@ -1818,52 +1864,10 @@ app.post('/orders/receive', async (req, res) => {
       products: createdProducts
     });
   } catch (error) {
-    logger.error('Ошибка при получении заказа', { error: error.message, supplyId });
-    res.status(500).json({ error: 'Внутренняя ошибка сервера: ' + error.message });
-  }
-});
-
-app.post('/orders/cancel', async (req, res) => {
-  try {
-    const { supplyId } = req.body;
-    logger.info('Отмена заказа', { supplyId });
-    
-    if (!supplyId) {
-      logger.warn('Не указан supplyId для отмены заказа');
-      return res.status(400).json({ error: 'supplyId обязателен' });
-    }
-
-    const supply = await prisma.supply.findUnique({
-      where: { id: parseInt(supplyId) }
+    logger.error('Ошибка при получении заказа', { 
+      error: error.message, 
+      supplyId 
     });
-
-    if (!supply) {
-      logger.warn('Поставка не найдена', { supplyId });
-      return res.status(404).json({ error: 'Поставка не найдена' });
-    }
-
-    if (supply.status !== 'оформлен') {
-      logger.warn('Заказ нельзя отменить - неверный статус', { 
-        supplyId, 
-        currentStatus: supply.status 
-      });
-      return res.status(400).json({ 
-        error: 'Заказ можно отменить только в статусе "оформлен"',
-        currentStatus: supply.status
-      });
-    }
-
-    await prisma.supply.delete({
-      where: { id: parseInt(supplyId) }
-    });
-
-    logger.success('Заказ успешно отменен', { supplyId });
-    res.json({ 
-      message: 'Заказ успешно отменен',
-      supplyId: supplyId
-    });
-  } catch (error) {
-    logger.error('Ошибка при отмене заказа', { error: error.message, supplyId });
     res.status(500).json({ error: 'Внутренняя ошибка сервера: ' + error.message });
   }
 });

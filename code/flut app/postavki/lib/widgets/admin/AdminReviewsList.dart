@@ -180,98 +180,100 @@ class _AdminReviewsListState extends State<AdminReviewsList> {
         onPressed: _addNewReview,
         child: const Icon(Icons.add),
       ),
-      body: Column(
-        children: [
-          // Поиск
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchQuery = value),
-              decoration: InputDecoration(
-                labelText: 'Поиск отзывов',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    _searchController.clear();
-                    setState(() => _searchQuery = '');
-                  },
-                ),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ),
-
-          // Информация
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Всего: ${_reviews.length}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                if (_searchQuery.isNotEmpty)
-                  Text(
-                    'Найдено: ${filteredReviews.length}',
-                    style: const TextStyle(color: Colors.blue),
-                  ),
-              ],
-            ),
-          ),
-
-          // Список
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(_errorMessage!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadReviews,
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
-                  )
-                : filteredReviews.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.reviews, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('Нет отзывов'),
-                        SizedBox(height: 8),
-                        Text(
-                          'Нажмите + чтобы добавить новый отзыв',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: filteredReviews.length,
-                    itemBuilder: (context, index) {
-                      final review = filteredReviews[index];
-                      return ReviewCard(
-                        review: review,
-                        onEdit: () => _editReview(review),
-                        onDelete: () => _deleteReview(review['id']),
-                        onViewDetails: () => _viewReviewDetails(review),
-                      );
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Поиск
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: InputDecoration(
+                  labelText: 'Поиск отзывов',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
                     },
                   ),
-          ),
-        ],
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ),
+
+            // Информация
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Всего: ${_reviews.length}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  if (_searchQuery.isNotEmpty)
+                    Text(
+                      'Найдено: ${filteredReviews.length}',
+                      style: const TextStyle(color: Colors.blue),
+                    ),
+                ],
+              ),
+            ),
+
+            // Список
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.red, size: 64),
+                          const SizedBox(height: 16),
+                          Text(_errorMessage!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadReviews,
+                            child: const Text('Повторить'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : filteredReviews.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.reviews, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text('Нет отзывов'),
+                          SizedBox(height: 8),
+                          Text(
+                            'Нажмите + чтобы добавить новый отзыв',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredReviews.length,
+                      itemBuilder: (context, index) {
+                        final review = filteredReviews[index];
+                        return ReviewCard(
+                          review: review,
+                          onEdit: () => _editReview(review),
+                          onDelete: () => _deleteReview(review['id']),
+                          onViewDetails: () => _viewReviewDetails(review),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -296,59 +298,95 @@ class ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: ListTile(
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Colors.purple.shade50,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Icon(Icons.reviews, color: Colors.purple),
-        ),
-        title: Text(
-          _getTruncatedText(review['text'] ?? ''),
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        subtitle: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Магазин: ${review['fromStore']?['name'] ?? 'Неизвестно'}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            Text(
-              'Поставщик: ${review['toSupplier']?['name'] ?? 'Неизвестно'}',
-              style: const TextStyle(fontSize: 12),
-            ),
-            if (review['createdAt'] != null)
-              Text(
-                _formatDate(review['createdAt']),
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
+            // Иконка
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.purple.shade50,
+                borderRadius: BorderRadius.circular(8),
               ),
+              child: const Icon(Icons.reviews, color: Colors.purple),
+            ),
+            const SizedBox(width: 12),
+
+            // Текстовая информация и кнопки
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Текст отзыва
+                  Text(
+                    _getTruncatedText(review['text'] ?? ''),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Магазин
+                  Text(
+                    'Магазин: ${review['fromStore']?['name'] ?? 'Неизвестно'}',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                  ),
+
+                  // Поставщик
+                  Text(
+                    'Поставщик: ${review['toSupplier']?['name'] ?? 'Неизвестно'}',
+                    style: TextStyle(color: Colors.grey[700], fontSize: 12),
+                  ),
+                  const SizedBox(height: 4),
+
+                  // Дата
+                  if (review['createdAt'] != null)
+                    Text(
+                      _formatDate(review['createdAt']),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 10,
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+
+                  // Кнопки
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.info, color: Colors.blue),
+                        onPressed: onViewDetails,
+                        tooltip: 'Подробности',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: onEdit,
+                        tooltip: 'Редактировать',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: onDelete,
+                        tooltip: 'Удалить',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.info, color: Colors.blue),
-              onPressed: onViewDetails,
-              tooltip: 'Подробности',
-            ),
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.orange),
-              onPressed: onEdit,
-              tooltip: 'Редактировать',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: onDelete,
-              tooltip: 'Удалить',
-            ),
-          ],
-        ),
-        onTap: onViewDetails,
       ),
     );
   }

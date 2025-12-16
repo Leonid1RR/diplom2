@@ -34,206 +34,203 @@ class _LoginPageState extends State<LoginPage> {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+      body: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                GlobalConfig.gradientColor1,
+                GlobalConfig.gradientColor2,
+              ],
+            ),
           ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Заголовок
-                  const Column(
-                    children: [
-                      Icon(
-                        Icons.storefront_rounded,
-                        size: 80,
-                        color: Colors.white,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Вход в систему',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
+          child: Center(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Заголовок
+                    const Column(
+                      children: [
+                        Icon(
+                          Icons.storefront_rounded,
+                          size: 80,
                           color: Colors.white,
                         ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Войдите в свой аккаунт',
-                        style: TextStyle(fontSize: 16, color: Colors.white70),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 40),
-
-                  // Переключатель Магазин/Поставщик
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'Тип аккаунта',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[50],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: ToggleButtons(
-                              isSelected: [!isSupplier, isSupplier],
-                              onPressed: (int index) {
-                                setState(() {
-                                  isSupplier = index == 1;
-                                });
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              selectedColor: Colors.white,
-                              fillColor: const Color(0xFF667eea),
-                              color: Colors.grey[600],
-                              constraints: const BoxConstraints(
-                                minHeight: 50,
-                                minWidth: 120,
-                              ),
-                              children: const [
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 16.0,
-                                  ),
-                                  child: Text('Магазин'),
-                                ),
-                                Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 16.0,
-                                  ),
-                                  child: Text('Поставщик'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Поля ввода
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        children: [
-                          TextField(
-                            controller: nameController,
-                            decoration: InputDecoration(
-                              labelText: 'Название',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              hintText: 'Введите название',
-                              prefixIcon: const Icon(Icons.business),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                          ),
-
-                          const SizedBox(height: 16),
-
-                          TextField(
-                            controller: passwordController,
-                            obscureText: true,
-                            decoration: InputDecoration(
-                              labelText: 'Пароль',
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              hintText: 'Введите пароль',
-                              prefixIcon: const Icon(Icons.lock),
-                              filled: true,
-                              fillColor: Colors.grey[50],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // Кнопка входа
-                  isLoading
-                      ? const CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        )
-                      : SizedBox(
-                          width: double.infinity,
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: _login,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF667eea),
-                              elevation: 4,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              textStyle: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            child: const Text('Войти'),
+                        SizedBox(height: 16),
+                        Text(
+                          'Вход в систему',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Войдите в свой аккаунт',
+                          style: TextStyle(fontSize: 16, color: Colors.white70),
+                        ),
+                      ],
+                    ),
 
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 40),
 
-                  // Дополнительная информация
-                  Column(
-                    children: [
-                      const Text(
-                        'Убедитесь, что выбран правильный тип аккаунта',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white54, fontSize: 14),
+                    // Переключатель Магазин/Поставщик
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Для входа как администратор введите логин и пароль администратора\n(по умолчанию: admin/admin)',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 12,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'Тип аккаунта',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ToggleButtons(
+                                isSelected: [!isSupplier, isSupplier],
+                                onPressed: (int index) {
+                                  setState(() {
+                                    isSupplier = index == 1;
+                                  });
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                selectedColor: Colors.white,
+                                fillColor: GlobalConfig.gradientColor1,
+                                color: Colors.grey[600],
+                                constraints: const BoxConstraints(
+                                  minHeight: 50,
+                                  minWidth: 120,
+                                ),
+                                children: const [
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16.0,
+                                    ),
+                                    child: Text('Магазин'),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 16.0,
+                                    ),
+                                    child: Text('Поставщик'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Поля ввода
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          children: [
+                            TextField(
+                              controller: nameController,
+                              decoration: InputDecoration(
+                                labelText: 'Название',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                hintText: 'Введите название',
+                                prefixIcon: const Icon(Icons.business),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                              ),
+                            ),
+
+                            const SizedBox(height: 16),
+
+                            TextField(
+                              controller: passwordController,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: 'Пароль',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                hintText: 'Введите пароль',
+                                prefixIcon: const Icon(Icons.lock),
+                                filled: true,
+                                fillColor: Colors.grey[50],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 30),
+
+                    // Кнопка входа
+                    isLoading
+                        ? const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          )
+                        : SizedBox(
+                            width: double.infinity,
+                            height: 56,
+                            child: ElevatedButton(
+                              onPressed: _login,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF667eea),
+                                elevation: 4,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              child: const Text('Войти'),
+                            ),
+                          ),
+
+                    const SizedBox(height: 20),
+
+                    // Дополнительная информация
+                    Column(
+                      children: [
+                        const Text(
+                          'Убедитесь, что выбран правильный тип аккаунта',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white54, fontSize: 14),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -308,6 +305,12 @@ class _LoginPageState extends State<LoginPage> {
 
       if (response.statusCode == 200) {
         final user = jsonDecode(response.body);
+
+        // Сохраняем данные для автоматического входа
+        await GlobalConfig.saveUserData(
+          isSupplier ? 'supplier' : 'store',
+          user,
+        );
 
         if (!mounted) return;
         _showSuccess('Вход выполнен успешно!');

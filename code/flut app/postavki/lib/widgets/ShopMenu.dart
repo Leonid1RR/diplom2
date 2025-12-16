@@ -8,6 +8,7 @@ import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../main.dart';
+import 'settings.dart'; // ДОБАВЬТЕ ЭТОТ ИМПОРТ
 
 class ShopMenu extends StatefulWidget {
   final Map<String, dynamic> store;
@@ -229,9 +230,21 @@ class _ShopMenuState extends State<ShopMenu> {
 
     return Column(
       children: [
-        // Поиск и фильтры
-        Padding(
+        // Подложка для поиска и фильтров
+        Container(
+          margin: const EdgeInsets.all(8),
           padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: Column(
             children: [
               TextField(
@@ -478,6 +491,8 @@ class _ShopMenuState extends State<ShopMenu> {
     final warehouseIds = List<int>.from(groupedProduct['warehouseIds']);
 
     final controller = TextEditingController();
+    final scaffoldContext = context;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -511,13 +526,11 @@ class _ShopMenuState extends State<ShopMenu> {
                   Navigator.pop(context);
                 }
               } else {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Введите число от 1 до $currentCount'),
-                    ),
-                  );
-                }
+                ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                  SnackBar(
+                    content: Text('Введите число от 1 до $currentCount'),
+                  ),
+                );
               }
             },
             child: const Text('Продать'),
@@ -568,6 +581,8 @@ class _ShopMenuState extends State<ShopMenu> {
   }
 
   Future<void> _deleteAllProducts(List<int> warehouseIds) async {
+    final scaffoldContext = context;
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -596,12 +611,60 @@ class _ShopMenuState extends State<ShopMenu> {
 
   // Вкладка поставок
   Widget _buildBatchesTab() {
-    List<dynamic> filteredBatches = _filterAndSortBatches(allBatches);
+    // Группируем партии по одинаковым характеристикам (кроме quantity)
+    final Map<String, List<dynamic>> groupedBatches = {};
+
+    for (final batch in allBatches) {
+      final key =
+          '${batch['name']}_${batch['description']}_${batch['expiration']}_${batch['price']}_${batch['photo'] ?? ''}_${batch['itemsPerBatch']}_${batch['supplierId']}';
+
+      if (!groupedBatches.containsKey(key)) {
+        groupedBatches[key] = [];
+      }
+      groupedBatches[key]!.add(batch);
+    }
+
+    // Создаем список сгруппированных партий
+    final List<Map<String, dynamic>> groupedBatchesList = [];
+
+    groupedBatches.forEach((key, batchList) {
+      int totalQuantity = 0;
+      for (final batch in batchList) {
+        totalQuantity += (batch['quantity'] as num).toInt();
+      }
+
+      final sampleBatch = batchList.first;
+
+      groupedBatchesList.add({
+        'key': key,
+        'batches': batchList,
+        'totalQuantity': totalQuantity, // Общее количество партий
+        'sampleBatch': sampleBatch,
+      });
+    });
+
+    // Фильтруем и сортируем сгруппированные партии
+    List<Map<String, dynamic>> filteredBatches = _filterAndSortGroupedBatches(
+      groupedBatchesList,
+    );
 
     return Column(
       children: [
-        Padding(
+        // Подложка для поиска и фильтров
+        Container(
+          margin: const EdgeInsets.all(8),
           padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: Column(
             children: [
               TextField(
@@ -645,8 +708,8 @@ class _ShopMenuState extends State<ShopMenu> {
                           child: Text('По сроку годности'),
                         ),
                         DropdownMenuItem(
-                          value: 'productCount',
-                          child: Text('По количеству'),
+                          value: 'quantity',
+                          child: Text('По количеству партий'),
                         ),
                       ],
                       onChanged: (value) {
@@ -711,7 +774,12 @@ class _ShopMenuState extends State<ShopMenu> {
                 : ListView.builder(
                     itemCount: filteredBatches.length,
                     itemBuilder: (context, index) {
-                      final batch = filteredBatches[index];
+                      final group = filteredBatches[index];
+                      final batch =
+                          group['sampleBatch'] as Map<String, dynamic>;
+                      final totalQuantity = group['totalQuantity'];
+                      final itemsPerBatch = batch['itemsPerBatch'];
+
                       return Card(
                         margin: const EdgeInsets.all(8),
                         child: ListTile(
@@ -754,9 +822,8 @@ class _ShopMenuState extends State<ShopMenu> {
                                 'Поставщик: ${batch['supplier']?['name'] ?? 'Неизвестно'}',
                               ),
                               Text('Цена за партию: ${batch['price']} руб'),
-                              Text(
-                                'Количество в партии: ${batch['productCount']} шт',
-                              ),
+                              Text('Количество партий: $totalQuantity шт'),
+                              Text('Товаров в партии: $itemsPerBatch шт'),
                               Text(
                                 'Срок годности: ${batch['expiration']} дней',
                               ),
@@ -767,7 +834,8 @@ class _ShopMenuState extends State<ShopMenu> {
                             Icons.arrow_forward_ios,
                             size: 16,
                           ),
-                          onTap: () => _showBatchOrderDialog(batch),
+                          onTap: () =>
+                              _showBatchOrderDialog(batch, totalQuantity),
                         ),
                       );
                     },
@@ -793,8 +861,11 @@ class _ShopMenuState extends State<ShopMenu> {
     return suppliers;
   }
 
-  List<dynamic> _filterAndSortBatches(List<dynamic> batches) {
-    List<dynamic> filtered = batches.where((batch) {
+  List<Map<String, dynamic>> _filterAndSortGroupedBatches(
+    List<Map<String, dynamic>> groupedBatches,
+  ) {
+    List<Map<String, dynamic>> filtered = groupedBatches.where((group) {
+      final batch = group['sampleBatch'];
       final matchesSearch = batch['name'].toLowerCase().contains(
         _batchSearchQuery.toLowerCase(),
       );
@@ -809,27 +880,39 @@ class _ShopMenuState extends State<ShopMenu> {
     }).toList();
 
     filtered.sort((a, b) {
+      final batchA = a['sampleBatch'];
+      final batchB = b['sampleBatch'];
+      final totalQuantityA = a['totalQuantity'];
+      final totalQuantityB = b['totalQuantity'];
+
       switch (_batchSortBy) {
         case 'price':
-          return a['price'].compareTo(b['price']);
+          return batchA['price'].compareTo(batchB['price']);
         case 'expiration':
-          return a['expiration'].compareTo(b['expiration']);
-        case 'productCount':
-          return a['productCount'].compareTo(b['productCount']);
+          return batchA['expiration'].compareTo(batchB['expiration']);
+        case 'quantity':
+          return totalQuantityB.compareTo(
+            totalQuantityA,
+          ); // Большее количество сверху
         case 'name':
         default:
-          return a['name'].compareTo(b['name']);
+          return batchA['name'].compareTo(batchB['name']);
       }
     });
 
     return filtered;
   }
 
-  void _showBatchOrderDialog(Map<String, dynamic> batch) {
+  // В _showBatchOrderDialog
+  void _showBatchOrderDialog(
+    Map<String, dynamic> batch,
+    int availableQuantity,
+  ) {
     showDialog(
       context: context,
       builder: (context) => BatchOrderDialog(
         batch: batch,
+        availableQuantity: availableQuantity,
         storeId: widget.store['id'],
         onOrderCreated: _loadSupplies,
       ),
@@ -842,8 +925,21 @@ class _ShopMenuState extends State<ShopMenu> {
 
     return Column(
       children: [
-        Padding(
+        // Подложка для фильтров и сортировки
+        Container(
+          margin: const EdgeInsets.all(8),
           padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: Column(
             children: [
               Row(
@@ -935,13 +1031,15 @@ class _ShopMenuState extends State<ShopMenu> {
                                     'Содержимое: ${_parseSupplyContent(supply['content'])}',
                                   ),
                                   Text('Статус: ${supply['status']}'),
-                                  Text(
-                                    'Дата создания: ${_formatDate(supply['createdAt'] ?? '')}',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                      fontSize: 12,
+                                  // УБРАНА ДАТА СОЗДАНИЯ
+                                  if (supply['deliveryTime'] != null)
+                                    Text(
+                                      'Время доставки: ${_formatDate(supply['deliveryTime'])}',
+                                      style: TextStyle(
+                                        color: Colors.grey[600],
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                               trailing: _buildOrderActions(supply),
@@ -1105,7 +1203,7 @@ class _ShopMenuState extends State<ShopMenu> {
     return Future.value();
   }
 
-  // Вкладка аккаунта
+  // Вкладка аккаунта - ОБНОВЛЕНА
   Widget _buildAccountTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1114,60 +1212,100 @@ class _ShopMenuState extends State<ShopMenu> {
           // Фото профиля
           GestureDetector(
             onTap: _changePhoto,
-            child: CircleAvatar(
-              radius: 50,
-              backgroundImage:
-                  storeData['photo'] != null &&
-                      storeData['photo'].isNotEmpty &&
-                      storeData['photo'].startsWith('data:image/')
-                  ? MemoryImage(
-                      base64Decode(storeData['photo'].split(',').last),
-                    )
-                  : null,
-              child: storeData['photo'] == null || storeData['photo'].isEmpty
-                  ? const Icon(Icons.store, size: 50, color: Colors.white)
-                  : null,
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 300, maxHeight: 300),
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child:
+                      storeData['photo'] != null &&
+                          storeData['photo'].isNotEmpty &&
+                          storeData['photo'].startsWith('data:image/')
+                      ? Image.memory(
+                          base64Decode(storeData['photo'].split(',').last),
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.store,
+                            size: 100,
+                            color: Colors.grey,
+                          ),
+                        ),
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+
+          // Имя аккаунта
           Text(
-            'Нажмите для изменения фото',
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            storeData['name'] ?? 'Без названия',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
 
           const SizedBox(height: 20),
 
-          // Информация аккаунта
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildEditableField(
-                    'Название',
-                    'name',
-                    storeData['name'] ?? '',
-                  ),
-                  _buildEditableField(
-                    'Адрес',
-                    'address',
-                    storeData['address'] ?? '',
-                  ),
-                  _buildEditableField(
-                    'Описание',
-                    'description',
-                    storeData['description'] ?? '',
-                  ),
-                  _buildPasswordField(),
-                ],
+          // Кнопка настроек
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.settings, color: Colors.blue),
+              title: const Text(
+                'Настройки',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
+              subtitle: const Text('Настройки аккаунта, дизайна и удаление'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsPage(
+                      userData: storeData,
+                      userType: 'store',
+                      onThemeChanged: () {
+                        setState(() {}); // Обновляем тему
+                      },
+                      onLogout: _logout,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
 
           const SizedBox(height: 16),
 
           // Сообщение в поддержку
-          Card(
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: ListTile(
               leading: const Icon(Icons.support_agent, color: Colors.blue),
               title: const Text(
@@ -1184,130 +1322,62 @@ class _ShopMenuState extends State<ShopMenu> {
 
           const SizedBox(height: 16),
 
-          // Удаление аккаунта
-          Card(
-            color: Colors.red[50],
-            child: ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text(
-                'Удалить аккаунт',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
+          // Кнопка выхода из аккаунта
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
+              ],
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.exit_to_app, color: Colors.blue),
+              title: const Text(
+                'Выйти из аккаунта',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              subtitle: const Text(
-                'Все ваши данные будут безвозвратно удалены',
-              ),
-              onTap: _deleteAccount,
+              subtitle: const Text('Вернуться на экран входа'),
+              onTap: _logout,
             ),
           ),
+
+          const SizedBox(height: 16),
         ],
       ),
     );
   }
 
-  Widget _buildEditableField(String label, String field, String value) {
-    return ListTile(
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(value.isEmpty ? 'Не указано' : value),
-      trailing: IconButton(
-        icon: const Icon(Icons.edit),
-        onPressed: () => _editField(field, value),
-      ),
-    );
-  }
-
-  Widget _buildPasswordField() {
-    return ListTile(
-      title: const Text(
-        'Пароль',
-        style: TextStyle(fontWeight: FontWeight.bold),
-      ),
-      subtitle: const Text('••••••••'),
-      trailing: IconButton(
-        icon: const Icon(Icons.edit),
-        onPressed: _changePassword,
-      ),
-    );
-  }
-
-  void _editField(String field, String currentValue) {
-    final controller = TextEditingController(text: currentValue);
-    showDialog(
+  Future<void> _logout() async {
+    final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Изменить ${_getFieldName(field)}'),
-        content: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: 'Введите ${_getFieldName(field).toLowerCase()}',
-          ),
-        ),
+        title: const Text('Выйти из аккаунта?'),
+        content: const Text('Вы уверены, что хотите выйти?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Отмена'),
           ),
           TextButton(
-            onPressed: () async {
-              if (controller.text.trim().isNotEmpty) {
-                await _updateStoreField(field, controller.text.trim());
-              }
-              if (mounted) {
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Сохранить'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Выйти'),
           ),
         ],
       ),
     );
-  }
 
-  String _getFieldName(String field) {
-    switch (field) {
-      case 'name':
-        return 'Название';
-      case 'address':
-        return 'Адрес';
-      case 'description':
-        return 'Описание';
-      default:
-        return field;
+    if (shouldLogout == true) {
+      await GlobalConfig.logout();
+
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+      }
     }
-  }
-
-  void _changePassword() {
-    final controller = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Изменить пароль'),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          decoration: const InputDecoration(hintText: 'Введите новый пароль'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (controller.text.trim().isNotEmpty) {
-                await _updateStoreField('password', controller.text.trim());
-              }
-              if (mounted) {
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Сохранить'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _updateStoreField(String field, String value) async {
@@ -1466,6 +1536,7 @@ class _ShopMenuState extends State<ShopMenu> {
                   Uri.parse('$baseUrl/stores/${widget.store['id']}'),
                 );
                 if (response.statusCode == 200) {
+                  await GlobalConfig.logout();
                   if (mounted) {
                     Navigator.pushNamedAndRemoveUntil(
                       context,
@@ -1666,19 +1737,28 @@ class _ShopMenuState extends State<ShopMenu> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Магазин: ${storeData['name'] ?? widget.store['name']}'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-      ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _buildWarehouseTab(),
-          _buildBatchesTab(),
-          _buildOrdersTab(),
-          _buildAccountTab(),
-        ],
+      body: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                GlobalConfig.gradientColor1,
+                GlobalConfig.gradientColor2,
+              ],
+            ),
+          ),
+          child: IndexedStack(
+            index: _currentIndex,
+            children: [
+              _buildWarehouseTab(),
+              _buildBatchesTab(),
+              _buildOrdersTab(),
+              _buildAccountTab(),
+            ],
+          ),
+        ),
       ),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
@@ -1713,12 +1793,14 @@ class _ShopMenuState extends State<ShopMenu> {
 // Вспомогательные классы диалогов
 class BatchOrderDialog extends StatefulWidget {
   final Map<String, dynamic> batch;
+  final int availableQuantity;
   final int storeId;
   final VoidCallback onOrderCreated;
 
   const BatchOrderDialog({
     super.key,
     required this.batch,
+    required this.availableQuantity,
     required this.storeId,
     required this.onOrderCreated,
   });
@@ -1757,11 +1839,24 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
 
   Future<void> _createOrder() async {
     try {
+      if (_quantity > widget.availableQuantity) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Доступно только ${widget.availableQuantity} партий',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
       final response = await http.post(
         Uri.parse('$baseUrl/orders/create'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'batchId': widget.batch['id'],
+          'batchId': widget.batch['id'], // Это ID конкретной записи
           'storeId': widget.storeId,
           'supplierId': widget.batch['supplierId'],
           'quantity': _quantity,
@@ -1770,23 +1865,26 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
 
       if (response.statusCode == 200) {
         widget.onOrderCreated();
-        if (!mounted) return;
-        Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Заказ создан')));
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Заказ создан')));
+        }
       } else {
         final error = jsonDecode(response.body)['error'];
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка создания заказа: $error')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка создания заказа: $error')),
+          );
+        }
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка создания заказа: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка создания заказа: $e')));
+      }
     }
   }
 
@@ -1806,17 +1904,19 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
 
       if (response.statusCode == 200) {
         _loadSupplierReviews();
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Отзыв добавлен')));
-        _reviewController.clear();
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Отзыв добавлен')));
+          _reviewController.clear();
+        }
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка добавления отзыва: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка добавления отзыва: $e')));
+      }
     }
   }
 
@@ -1882,9 +1982,11 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(height: 4),
-              Text('Количество в партии: ${widget.batch['productCount']} шт'),
+              Text('Количество в партии: ${widget.batch['itemsPerBatch']} шт'),
               const SizedBox(height: 4),
               Text('Цена партии: ${widget.batch['price']} руб'),
+              const SizedBox(height: 4),
+              Text('Доступно партий: ${widget.availableQuantity} шт'),
 
               const SizedBox(height: 16),
 
@@ -1949,7 +2051,9 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
                             const SizedBox(width: 8),
                             IconButton(
                               icon: const Icon(Icons.add),
-                              onPressed: () => setState(() => _quantity++),
+                              onPressed: _quantity < widget.availableQuantity
+                                  ? () => setState(() => _quantity++)
+                                  : null,
                               style: IconButton.styleFrom(
                                 backgroundColor: Colors.white,
                               ),
@@ -2105,10 +2209,11 @@ class _ReceiveOrderDialogState extends State<ReceiveOrderDialog> {
     try {
       final price = double.tryParse(_priceController.text) ?? 0.0;
       if (price <= 0) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Введите корректную цену')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Введите корректную цену')),
+          );
+        }
         return;
       }
 
@@ -2137,25 +2242,28 @@ class _ReceiveOrderDialogState extends State<ReceiveOrderDialog> {
 
       if (response.statusCode == 200) {
         widget.onOrderReceived();
-        if (!mounted) return;
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Заказ получен, товары добавлены на склад'),
-          ),
-        );
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Заказ получен, товары добавлены на склад'),
+            ),
+          );
+        }
       } else {
         final error = jsonDecode(response.body)['error'];
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка получения заказа: $error')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка получения заказа: $error')),
+          );
+        }
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка получения заказа: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка получения заказа: $e')));
+      }
     }
   }
 
@@ -2284,17 +2392,19 @@ class _ProductEditDialogState extends State<ProductEditDialog> {
 
       if (response.statusCode == 200) {
         widget.onProductUpdated();
-        if (!mounted) return;
-        Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Товар обновлен')));
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Товар обновлен')));
+        }
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка обновления: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка обновления: $e')));
+      }
     }
   }
 

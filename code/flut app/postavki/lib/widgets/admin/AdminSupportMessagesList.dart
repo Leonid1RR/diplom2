@@ -176,120 +176,126 @@ class _AdminSupportMessagesListState extends State<AdminSupportMessagesList> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadMessages),
         ],
       ),
-      body: Column(
-        children: [
-          // Фильтры и поиск
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  onChanged: (value) => setState(() => _searchQuery = value),
-                  decoration: InputDecoration(
-                    labelText: 'Поиск сообщений',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Фильтры и поиск
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                    decoration: InputDecoration(
+                      labelText: 'Поиск сообщений',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      ),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _filterType,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'all',
+                        child: Text('Все сообщения'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'store',
+                        child: Text('От магазинов'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'supplier',
+                        child: Text('От поставщиков'),
+                      ),
+                    ],
+                    onChanged: (value) => setState(() => _filterType = value!),
+                    decoration: const InputDecoration(
+                      labelText: 'Тип отправителя',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Информация
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Всего: ${_messages.length}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                  if (_searchQuery.isNotEmpty || _filterType != 'all')
+                    Text(
+                      'Найдено: ${filteredMessages.length}',
+                      style: const TextStyle(color: Colors.blue),
+                    ),
+                ],
+              ),
+            ),
+
+            // Список
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error, color: Colors.red, size: 64),
+                          const SizedBox(height: 16),
+                          Text(_errorMessage!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadMessages,
+                            child: const Text('Повторить'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : filteredMessages.isEmpty
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.support_agent,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text('Нет сообщений поддержки'),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredMessages.length,
+                      itemBuilder: (context, index) {
+                        final message = filteredMessages[index];
+                        return SupportMessageCard(
+                          message: message,
+                          onDelete: () => _deleteMessage(message['id']),
+                          onViewDetails: () => _viewMessageDetails(message),
+                          onReply: () => _replyToMessage(message),
+                        );
                       },
                     ),
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: _filterType,
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'all',
-                      child: Text('Все сообщения'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'store',
-                      child: Text('От магазинов'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'supplier',
-                      child: Text('От поставщиков'),
-                    ),
-                  ],
-                  onChanged: (value) => setState(() => _filterType = value!),
-                  decoration: const InputDecoration(
-                    labelText: 'Тип отправителя',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
             ),
-          ),
-
-          // Информация
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Всего: ${_messages.length}',
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                if (_searchQuery.isNotEmpty || _filterType != 'all')
-                  Text(
-                    'Найдено: ${filteredMessages.length}',
-                    style: const TextStyle(color: Colors.blue),
-                  ),
-              ],
-            ),
-          ),
-
-          // Список
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, color: Colors.red, size: 64),
-                        const SizedBox(height: 16),
-                        Text(_errorMessage!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadMessages,
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
-                  )
-                : filteredMessages.isEmpty
-                ? const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.support_agent, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('Нет сообщений поддержки'),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: filteredMessages.length,
-                    itemBuilder: (context, index) {
-                      final message = filteredMessages[index];
-                      return SupportMessageCard(
-                        message: message,
-                        onDelete: () => _deleteMessage(message['id']),
-                        onViewDetails: () => _viewMessageDetails(message),
-                        onReply: () => _replyToMessage(message),
-                      );
-                    },
-                  ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -357,7 +363,7 @@ class SupportMessageCard extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
+            /*IconButton(
               icon: const Icon(Icons.reply, color: Colors.green),
               onPressed: onReply,
               tooltip: 'Ответить',
@@ -366,7 +372,7 @@ class SupportMessageCard extends StatelessWidget {
               icon: const Icon(Icons.info, color: Colors.blue),
               onPressed: onViewDetails,
               tooltip: 'Подробности',
-            ),
+            ),*/
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: onDelete,

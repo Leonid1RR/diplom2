@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../main.dart';
+import 'settings.dart'; // ДОБАВЬТЕ ЭТОТ ИМПОРТ
 
 class SupplierMenu extends StatefulWidget {
   final Map<String, dynamic> supplier;
@@ -121,7 +122,7 @@ class _SupplierMenuState extends State<SupplierMenu> {
           .toList();
     }
 
-    // Применяем сортировку
+    // Применяем сортировка
     filtered.sort((a, b) {
       switch (_sortBy) {
         case 'id':
@@ -144,9 +145,20 @@ class _SupplierMenuState extends State<SupplierMenu> {
   Widget _buildOrdersTab() {
     return Column(
       children: [
-        // Панель фильтров и сортировки
-        Card(
+        // Подложка для фильтров и сортировки
+        Container(
           margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -154,7 +166,7 @@ class _SupplierMenuState extends State<SupplierMenu> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _statusFilter,
-                    items: ['Все', 'оформлен', 'отправлен', 'доставлен']
+                    items: ['Все', 'оформлен', 'отправлен', 'получено']
                         .map(
                           (status) => DropdownMenuItem(
                             value: status,
@@ -230,6 +242,15 @@ class _SupplierMenuState extends State<SupplierMenu> {
                               Text(
                                 'Статус: ${_getStatusText(supply['status'])}',
                               ),
+                              // УБРАНА ДАТА СОЗДАНИЯ
+                              if (supply['deliveryTime'] != null)
+                                Text(
+                                  'Время доставки: ${_formatDate(supply['deliveryTime'])}',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
                             ],
                           ),
                           trailing: supply['status'] == 'оформлен'
@@ -259,17 +280,11 @@ class _SupplierMenuState extends State<SupplierMenu> {
   String _parseSupplyContent(String content) {
     try {
       final orderItems = jsonDecode(content);
-      if (orderItems is Map && orderItems.containsKey('batchId')) {
-        final batchId = orderItems['batchId'];
-        final batchCount = orderItems['batchCount'] ?? 1;
-        final batch = batches.firstWhere(
-          (b) => b['id'] == batchId,
-          orElse: () => null,
-        );
-        if (batch != null) {
-          final productCount = batch['productCount'] ?? 0;
-          return 'Партия "${batch['name']}": $batchCount партий × $productCount товаров = ${batchCount * productCount} товаров';
-        }
+      if (orderItems is Map && orderItems.containsKey('batchName')) {
+        final quantity = orderItems['quantity'] ?? 1;
+        final itemsPerBatch = orderItems['itemsPerBatch'] ?? 1;
+        final totalItems = quantity * itemsPerBatch;
+        return '${orderItems['batchName']} ($quantity партий по $itemsPerBatch шт) = $totalItems товаров';
       }
       return content;
     } catch (e) {
@@ -283,8 +298,8 @@ class _SupplierMenuState extends State<SupplierMenu> {
         return 'Оформлен';
       case 'отправлен':
         return 'Отправлен';
-      case 'доставлен':
-        return 'Доставлен';
+      case 'получено':
+        return 'Получен';
       default:
         return status;
     }
@@ -296,7 +311,7 @@ class _SupplierMenuState extends State<SupplierMenu> {
         return Colors.orange;
       case 'отправлен':
         return Colors.blue;
-      case 'доставлен':
+      case 'получено':
         return Colors.green;
       default:
         return Colors.grey;
@@ -304,8 +319,6 @@ class _SupplierMenuState extends State<SupplierMenu> {
   }
 
   Future<void> _sendSupply(int supplyId) async {
-    if (!mounted) return;
-
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/orders/send'),
@@ -316,33 +329,36 @@ class _SupplierMenuState extends State<SupplierMenu> {
       if (response.statusCode == 200) {
         _loadSupplies();
         _loadBatches();
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Заказ отправлен')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Заказ отправлен')));
+        }
       } else {
         final error = jsonDecode(response.body)['error'];
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка отправки: $error')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Ошибка отправки: $error')));
+        }
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка: $e')));
+      }
     }
   }
 
-  // Вкладка моих партий с группировкой
+  // Вкладка моих партий
   Widget _buildBatchesTab() {
-    // Группируем партии по одинаковым характеристикам (кроме id и productCount)
+    // Группируем партии по одинаковым характеристикам
     final Map<String, List<dynamic>> groupedBatches = {};
 
     for (final batch in batches) {
       final key =
-          '${batch['name']}_${batch['description']}_${batch['expiration']}_${batch['price']}_${batch['photo'] ?? ''}';
+          '${batch['name']}_${batch['description']}_${batch['expiration']}_${batch['price']}_${batch['photo'] ?? ''}_${batch['itemsPerBatch']}';
 
       if (!groupedBatches.containsKey(key)) {
         groupedBatches[key] = [];
@@ -354,96 +370,105 @@ class _SupplierMenuState extends State<SupplierMenu> {
     final List<Map<String, dynamic>> groupedBatchesList = [];
 
     groupedBatches.forEach((key, batchList) {
-      final totalBatches = batchList.fold<int>(
-        0,
-        (int sum, batch) => sum + (batch['productCount'] as int),
-      );
+      int totalQuantity = 0;
+      for (final batch in batchList) {
+        totalQuantity += (batch['quantity'] as num).toInt();
+      }
+
       final sampleBatch = batchList.first;
 
       groupedBatchesList.add({
         'key': key,
         'batches': batchList,
-        'totalBatches': totalBatches,
+        'totalQuantity': totalQuantity, // Общее количество партий
         'sampleBatch': sampleBatch,
       });
     });
 
-    return Column(
+    return Stack(
       children: [
-        ElevatedButton(
-          onPressed: _addBatch,
-          child: const Text('Добавить партию'),
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _loadBatches,
-            child: groupedBatchesList.isEmpty
-                ? const Center(child: Text('Нет партий'))
-                : ListView.builder(
-                    itemCount: groupedBatchesList.length,
-                    itemBuilder: (context, index) {
-                      final group = groupedBatchesList[index];
-                      final batch =
-                          group['sampleBatch'] as Map<String, dynamic>;
-                      final batchIds = (group['batches'] as List<dynamic>)
-                          .map<int>((b) => b['id'] as int)
-                          .toList();
+        RefreshIndicator(
+          onRefresh: _loadBatches,
+          child: groupedBatchesList.isEmpty
+              ? const Center(child: Text('Нет партий'))
+              : ListView.builder(
+                  itemCount: groupedBatchesList.length,
+                  itemBuilder: (context, index) {
+                    final group = groupedBatchesList[index];
+                    final batch = group['sampleBatch'] as Map<String, dynamic>;
+                    final batchIds = (group['batches'] as List<dynamic>)
+                        .map<int>((b) => b['id'] as int)
+                        .toList();
+                    final totalQuantity = group['totalQuantity'];
+                    final itemsPerBatch = batch['itemsPerBatch'];
 
-                      return Card(
-                        margin: const EdgeInsets.all(8),
-                        child: ListTile(
-                          leading: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.inventory,
-                              color: Colors.grey,
-                            ),
+                    return Card(
+                      margin: const EdgeInsets.all(8),
+                      child: ListTile(
+                        leading: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          title: Text(batch['name']),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Цена за партию: ${batch['price']} руб'),
-                              Text(
-                                'Количество партий: ${group['totalBatches']}',
-                              ),
-                              Text(
-                                'Срок годности: ${batch['expiration']} дней',
-                              ),
-                            ],
-                          ),
-                          trailing: PopupMenuButton(
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Text('Редактировать'),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Text(
-                                  'Удалить',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ),
-                            ],
-                            onSelected: (value) {
-                              if (value == 'edit') {
-                                _editBatch(batch);
-                              } else if (value == 'delete') {
-                                _deleteMultipleBatches(batchIds);
-                              }
-                            },
+                          child: const Icon(
+                            Icons.inventory,
+                            color: Colors.grey,
                           ),
                         ),
-                      );
-                    },
-                  ),
+                        title: Text(batch['name']),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Цена за партию: ${batch['price']} руб'),
+                            Text('Количество партий: $totalQuantity шт'),
+                            Text('Товаров в партии: $itemsPerBatch шт'),
+                            // УБРАНО "Всего товаров"
+                            Text('Срок годности: ${batch['expiration']} дней'),
+                          ],
+                        ),
+                        trailing: PopupMenuButton(
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Text('Редактировать'),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Text(
+                                'Удалить',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              _editBatch(batch);
+                            } else if (value == 'delete') {
+                              _deleteMultipleBatches(batchIds);
+                            }
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+
+        // Кнопка добавления партии в правом нижнем углу
+        Positioned(
+          bottom: 16,
+          right: 16,
+          child: FloatingActionButton(
+            onPressed: _addBatch,
+            backgroundColor: Colors.blue,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.add),
           ),
         ),
       ],
@@ -478,20 +503,23 @@ class _SupplierMenuState extends State<SupplierMenu> {
 
                 if (allDeleted) {
                   _loadBatches();
-                  if (!mounted) return;
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Удалено ${batchIds.length} партий'),
+                      ),
+                    );
+                  }
+                }
+                if (mounted) {
+                  Navigator.pop(context);
+                }
+              } catch (e) {
+                if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Удалено ${batchIds.length} партий'),
-                    ),
+                    SnackBar(content: Text('Ошибка удаления: $e')),
                   );
                 }
-                if (!mounted) return;
-                Navigator.pop(context);
-              } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
               }
             },
             child: const Text('Удалить', style: TextStyle(color: Colors.red)),
@@ -552,8 +580,9 @@ class _SupplierMenuState extends State<SupplierMenu> {
             onPressed: () async {
               if (controller.text.trim().isNotEmpty) {
                 await _sendSupportMessage(controller.text.trim());
-                if (!mounted) return;
-                Navigator.pop(context);
+                if (mounted) {
+                  Navigator.pop(context);
+                }
               }
             },
             child: const Text('Отправить'),
@@ -575,20 +604,23 @@ class _SupplierMenuState extends State<SupplierMenu> {
       );
 
       if (response.statusCode == 200) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Сообщение отправлено в поддержку')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Сообщение отправлено в поддержку')),
+          );
+        }
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка отправки: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка отправки: $e')));
+      }
     }
   }
 
   // Вкладка аккаунта
+
   Widget _buildAccountTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -597,61 +629,59 @@ class _SupplierMenuState extends State<SupplierMenu> {
           // Фото профиля
           GestureDetector(
             onTap: _changePhoto,
-            child: CircleAvatar(
-              radius: 50,
-              backgroundImage:
-                  supplierData['photo'] != null &&
-                      supplierData['photo'].isNotEmpty &&
-                      supplierData['photo'].startsWith('data:image/')
-                  ? MemoryImage(
-                      base64Decode(supplierData['photo'].split(',').last),
-                    )
-                  : null,
-              child:
-                  supplierData['photo'] == null || supplierData['photo'].isEmpty
-                  ? const Icon(Icons.person, size: 50, color: Colors.white)
-                  : null,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Нажмите для изменения фото',
-            style: TextStyle(color: Colors.grey[600], fontSize: 12),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Информация аккаунта
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildEditableField(
-                    'Имя',
-                    'name',
-                    supplierData['name'] ?? '',
-                  ),
-                  _buildEditableField(
-                    'Адрес',
-                    'address',
-                    supplierData['address'] ?? '',
-                  ),
-                  _buildEditableField(
-                    'Описание',
-                    'description',
-                    supplierData['description'] ?? '',
-                  ),
-                  _buildPasswordField(),
-                ],
+            child: Container(
+              width: double.infinity,
+              constraints: const BoxConstraints(maxWidth: 300, maxHeight: 300),
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child:
+                      supplierData['photo'] != null &&
+                          supplierData['photo'].isNotEmpty &&
+                          supplierData['photo'].startsWith('data:image/')
+                      ? Image.memory(
+                          base64Decode(supplierData['photo'].split(',').last),
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            color: Colors.grey[200],
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            size: 100,
+                            color: Colors.grey,
+                          ),
+                        ),
+                ),
               ),
             ),
+          ),
+          const SizedBox(height: 12),
+
+          // Имя аккаунта
+          Text(
+            supplierData['name'] ?? 'Без названия',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
 
           const SizedBox(height: 16),
 
           // Отзывы
-          Card(
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -668,6 +698,7 @@ class _SupplierMenuState extends State<SupplierMenu> {
                           child: Text(
                             'Отзывов пока нет',
                             textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 16),
                           ),
                         )
                       : Column(
@@ -702,10 +733,62 @@ class _SupplierMenuState extends State<SupplierMenu> {
             ),
           ),
 
+          const SizedBox(height: 20),
+
+          // Кнопка настроек
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.settings, color: Colors.blue),
+              title: const Text(
+                'Настройки',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: const Text('Настройки аккаунта, дизайна и удаление'),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsPage(
+                      userData: supplierData,
+                      userType: 'supplier',
+                      onThemeChanged: () {
+                        setState(() {}); // Обновляем тему
+                      },
+                      onLogout: _logout,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
           const SizedBox(height: 16),
 
-          // Сообщение в поддержку
-          Card(
+          // Сообщение в поддержку - ДОБАВЛЕНО
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: ListTile(
               leading: const Icon(Icons.support_agent, color: Colors.blue),
               title: const Text(
@@ -716,30 +799,37 @@ class _SupplierMenuState extends State<SupplierMenu> {
                 'Напишите нам, если у вас возникли проблемы',
               ),
               trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-              onTap: _showSupportDialog,
+              onTap: _showSupportDialog, // Используем существующий метод
             ),
           ),
 
           const SizedBox(height: 16),
 
-          // Удаление аккаунта
-          Card(
-            color: Colors.red[50],
-            child: ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text(
-                'Удалить аккаунт',
-                style: TextStyle(
-                  color: Colors.red,
-                  fontWeight: FontWeight.bold,
+          // Кнопка выхода из аккаунта
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
+              ],
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.exit_to_app, color: Colors.blue),
+              title: const Text(
+                'Выйти из аккаунта',
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              subtitle: const Text(
-                'Все ваши данные будут безвозвратно удалены',
-              ),
-              onTap: _deleteAccount,
+              subtitle: const Text('Вернуться на экран входа'),
+              onTap: _logout,
             ),
           ),
+
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -770,6 +860,34 @@ class _SupplierMenuState extends State<SupplierMenu> {
     );
   }
 
+  Future<void> _logout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Выйти из аккаунта?'),
+        content: const Text('Вы уверены, что хотите выйти?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Выйти'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true) {
+      await GlobalConfig.logout();
+
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+      }
+    }
+  }
+
   void _editField(String field, String currentValue) {
     final controller = TextEditingController(text: currentValue);
     showDialog(
@@ -792,8 +910,9 @@ class _SupplierMenuState extends State<SupplierMenu> {
               if (controller.text.trim().isNotEmpty) {
                 await _updateSupplierField(field, controller.text.trim());
               }
-              if (!mounted) return;
-              Navigator.pop(context);
+              if (mounted) {
+                Navigator.pop(context);
+              }
             },
             child: const Text('Сохранить'),
           ),
@@ -836,8 +955,9 @@ class _SupplierMenuState extends State<SupplierMenu> {
               if (controller.text.trim().isNotEmpty) {
                 await _updateSupplierField('password', controller.text.trim());
               }
-              if (!mounted) return;
-              Navigator.pop(context);
+              if (mounted) {
+                Navigator.pop(context);
+              }
             },
             child: const Text('Сохранить'),
           ),
@@ -857,16 +977,18 @@ class _SupplierMenuState extends State<SupplierMenu> {
 
       if (response.statusCode == 200) {
         _loadSupplierData();
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Данные обновлены')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Данные обновлены')));
+        }
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка обновления: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка обновления: $e')));
+      }
     }
   }
 
@@ -889,10 +1011,11 @@ class _SupplierMenuState extends State<SupplierMenu> {
 
         await _updateSupplierField('photo', photoData);
       } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка загрузки фото: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Ошибка загрузки фото: $e')));
+        }
       }
     }
   }
@@ -933,18 +1056,21 @@ class _SupplierMenuState extends State<SupplierMenu> {
                   Uri.parse('$baseUrl/suppliers/${widget.supplier['id']}'),
                 );
                 if (response.statusCode == 200) {
-                  if (!mounted) return;
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/',
-                    (route) => false,
-                  );
+                  await GlobalConfig.logout();
+                  if (mounted) {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/',
+                      (route) => false,
+                    );
+                  }
                 }
               } catch (e) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка удаления: $e')),
+                  );
+                }
               }
             },
             child: const Text('Удалить', style: TextStyle(color: Colors.red)),
@@ -957,7 +1083,7 @@ class _SupplierMenuState extends State<SupplierMenu> {
   String _formatDate(String dateString) {
     try {
       final date = DateTime.parse(dateString);
-      return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+      return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } catch (e) {
       return dateString;
     }
@@ -966,16 +1092,27 @@ class _SupplierMenuState extends State<SupplierMenu> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          'Поставщик: ${supplierData['name'] ?? widget.supplier['name']}',
+      body: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                GlobalConfig.gradientColor1,
+                GlobalConfig.gradientColor2,
+              ],
+            ),
+          ),
+          child: IndexedStack(
+            index: _currentIndex,
+            children: [
+              _buildOrdersTab(),
+              _buildBatchesTab(),
+              _buildAccountTab(),
+            ],
+          ),
         ),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
-      ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [_buildOrdersTab(), _buildBatchesTab(), _buildAccountTab()],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
@@ -1018,7 +1155,7 @@ class _BatchDialogState extends State<BatchDialog> {
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController expirationController = TextEditingController();
   final TextEditingController priceController = TextEditingController();
-  final TextEditingController batchCountController = TextEditingController();
+  final TextEditingController quantityController = TextEditingController();
   final TextEditingController itemsPerBatchController = TextEditingController();
   final String baseUrl = GlobalConfig.baseUrl;
 
@@ -1033,12 +1170,14 @@ class _BatchDialogState extends State<BatchDialog> {
       descriptionController.text = widget.batch!['description'];
       expirationController.text = widget.batch!['expiration'].toString();
       priceController.text = widget.batch!['price'].toString();
-      batchCountController.text = '1';
-      itemsPerBatchController.text = widget.batch!['productCount'].toString();
+      itemsPerBatchController.text = widget.batch!['itemsPerBatch'].toString();
+      quantityController.text = widget.batch!['quantity'].toString();
       _currentPhoto = widget.batch!['photo'];
     } else {
-      batchCountController.text = '1';
-      itemsPerBatchController.text = '1';
+      expirationController.text = '30';
+      priceController.text = '0';
+      quantityController.text = '1'; // По умолчанию 1 партия
+      itemsPerBatchController.text = '10';
     }
   }
 
@@ -1094,7 +1233,6 @@ class _BatchDialogState extends State<BatchDialog> {
 
   Future<void> _saveBatch() async {
     if (nameController.text.isEmpty) {
-      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Введите название партии')));
@@ -1103,12 +1241,10 @@ class _BatchDialogState extends State<BatchDialog> {
 
     try {
       final photoData = await _convertImageToBase64();
-      final batchCount = int.tryParse(batchCountController.text) ?? 1;
-      final itemsPerBatch = int.tryParse(itemsPerBatchController.text) ?? 1;
-      final totalItems = batchCount * itemsPerBatch;
+      final quantity = int.tryParse(quantityController.text) ?? 1;
+      final itemsPerBatch = int.tryParse(itemsPerBatchController.text) ?? 10;
 
-      if (batchCount <= 0) {
-        if (!mounted) return;
+      if (quantity <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Количество партий должно быть больше 0'),
@@ -1117,16 +1253,14 @@ class _BatchDialogState extends State<BatchDialog> {
         return;
       }
 
-      if (batchCount > 50) {
-        if (!mounted) return;
+      if (quantity > 100) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Не больше 50 партий')));
+        ).showSnackBar(const SnackBar(content: Text('Не больше 100 партий')));
         return;
       }
 
       if (itemsPerBatch <= 0) {
-        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Количество товаров в партии должно быть больше 0'),
@@ -1135,10 +1269,9 @@ class _BatchDialogState extends State<BatchDialog> {
         return;
       }
 
-      if (itemsPerBatch > 50) {
-        if (!mounted) return;
+      if (itemsPerBatch > 1000) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не больше 50 товаров в партии')),
+          const SnackBar(content: Text('Не больше 1000 товаров в партии')),
         );
         return;
       }
@@ -1146,11 +1279,11 @@ class _BatchDialogState extends State<BatchDialog> {
       final data = {
         'name': nameController.text,
         'description': descriptionController.text,
-        'expiration': int.tryParse(expirationController.text) ?? 0,
+        'expiration': int.tryParse(expirationController.text) ?? 30,
         'price': double.tryParse(priceController.text) ?? 0.0,
         'photo': photoData,
-        'productCount': batchCount,
         'itemsPerBatch': itemsPerBatch,
+        'quantity': quantity, // Количество таких партий
         'supplierId': widget.supplierId,
       };
 
@@ -1168,29 +1301,37 @@ class _BatchDialogState extends State<BatchDialog> {
 
       if (response.statusCode == 200) {
         widget.onBatchAdded();
-        if (!mounted) return;
-        Navigator.pop(context);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Партия сохранена')));
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                widget.batch == null
+                    ? 'Создано $quantity партий'
+                    : 'Партия обновлена',
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final batchCount = int.tryParse(batchCountController.text) ?? 1;
-    final itemsPerBatch = int.tryParse(itemsPerBatchController.text) ?? 1;
-    final totalItems = batchCount * itemsPerBatch;
+    final quantity = int.tryParse(quantityController.text) ?? 1;
+    final itemsPerBatch = int.tryParse(itemsPerBatchController.text) ?? 10;
 
-    final bool isBatchCountValid = batchCount > 0 && batchCount <= 50;
-    final bool isItemsPerBatchValid = itemsPerBatch > 0 && itemsPerBatch <= 50;
-    final bool allValid = isBatchCountValid && isItemsPerBatchValid;
+    final bool isQuantityValid = quantity > 0 && quantity <= 100;
+    final bool isItemsPerBatchValid =
+        itemsPerBatch > 0 && itemsPerBatch <= 1000;
+    final bool allValid = isQuantityValid && isItemsPerBatchValid;
 
     Color getColor() {
       if (!allValid) return Colors.red[50]!;
@@ -1212,180 +1353,240 @@ class _BatchDialogState extends State<BatchDialog> {
       return Icons.info;
     }
 
-    return AlertDialog(
-      title: Text(
-        widget.batch == null ? 'Добавить партию' : 'Редактировать партию',
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey[100],
+    // ВЫЧИСЛЯЕМ ШИРИНУ ДИАЛОГА - 90% ОТ ШИРИНЫ ЭКРАНА
+    final screenWidth = MediaQuery.of(context).size.width;
+    final dialogWidth = screenWidth * 0.9;
+
+    return Dialog(
+      // ИСПОЛЬЗУЕМ ConstrainedBox для установки ширины
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: dialogWidth,
+          minWidth: dialogWidth * 0.8,
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        child: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.batch == null
+                      ? 'Добавить партии'
+                      : 'Редактировать партию',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                child: _selectedImage != null
-                    ? Image.file(_selectedImage!, fit: BoxFit.cover)
-                    : _currentPhoto != null &&
-                          _currentPhoto!.startsWith('data:image/')
-                    ? Image.memory(
-                        base64Decode(_currentPhoto!.split(',').last),
-                        fit: BoxFit.cover,
-                      )
-                    : const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_photo_alternate,
-                            size: 40,
-                            color: Colors.grey,
+                const SizedBox(height: 16),
+
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.grey[100],
+                    ),
+                    child: _selectedImage != null
+                        ? Image.file(_selectedImage!, fit: BoxFit.cover)
+                        : _currentPhoto != null &&
+                              _currentPhoto!.startsWith('data:image/')
+                        ? Image.memory(
+                            base64Decode(_currentPhoto!.split(',').last),
+                            fit: BoxFit.cover,
+                          )
+                        : const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_photo_alternate,
+                                size: 40,
+                                color: Colors.grey,
+                              ),
+                              Text(
+                                'Фото',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            'Фото',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Нажмите для добавления фото',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Нажмите для добавления фото',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
 
-            const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: 'Название*',
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Описание',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: expirationController,
-              decoration: const InputDecoration(
-                labelText: 'Срок годности (дни)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-            ),
-
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: priceController,
-              decoration: const InputDecoration(
-                labelText: 'Цена за партию',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
-            ),
-
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: batchCountController,
-              decoration: const InputDecoration(
-                labelText: 'Количество партий (1-50)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-              onChanged: (value) {
-                setState(() {});
-              },
-            ),
-
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: itemsPerBatchController,
-              decoration: const InputDecoration(
-                labelText: 'Товаров в одной партии (1-50)',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.number,
-              onChanged: (value) {
-                setState(() {});
-              },
-            ),
-
-            const SizedBox(height: 12),
-
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: getColor(),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: getBorderColor()),
-              ),
-              child: Row(
-                children: [
-                  Icon(getIcon(), color: getTextColor(), size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Итого: $batchCount партий × $itemsPerBatch товаров = $totalItems товаров',
-                      style: TextStyle(
-                        color: getTextColor(),
-                        fontWeight: FontWeight.bold,
-                      ),
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Название партии*',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
 
-            if (!allValid)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: 'Описание партии',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  maxLines: 2,
+                ),
+
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: expirationController,
+                  decoration: const InputDecoration(
+                    labelText: 'Срок годности товаров (дни)',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: priceController,
+                  decoration: const InputDecoration(
+                    labelText: 'Цена за одну партию',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                ),
+
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: itemsPerBatchController,
+                  decoration: const InputDecoration(
+                    labelText: 'Товаров в одной партии (1-1000)',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    setState(() {});
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: quantityController,
+                  decoration: const InputDecoration(
+                    labelText: 'Количество таких партий (1-100)',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (value) {
+                    setState(() {});
+                  },
+                ),
+
+                const SizedBox(height: 12),
+
+                /*Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: getColor(),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: getBorderColor()),
+                  ),
+                  /*child: Row(
+                    children: [
+                      Icon(getIcon(), color: getTextColor(), size: 20),
+                      const SizedBox(width: 8),
+                      /*Expanded(
+                        child: Text(
+                          'Создается $quantity партий',
+                          style: TextStyle(
+                            color: getTextColor(),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),*/
+                    ],
+                  ),*/
+                ),*/
+                if (!allValid)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!isQuantityValid)
+                          const Text(
+                            '• Количество партий должно быть от 1 до 100',
+                            style: TextStyle(color: Colors.red, fontSize: 12),
+                          ),
+                        if (!isItemsPerBatchValid)
+                          const Text(
+                            '• Товаров в партии должно быть от 1 до 1000',
+                            style: TextStyle(color: Colors.red, fontSize: 12),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 20),
+
+                // Кнопки
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (!isBatchCountValid)
-                      const Text(
-                        '• Количество партий должно быть от 1 до 50',
-                        style: TextStyle(color: Colors.red, fontSize: 12),
-                      ),
-                    if (!isItemsPerBatchValid)
-                      const Text(
-                        '• Товаров в партии должно быть от 1 до 50',
-                        style: TextStyle(color: Colors.red, fontSize: 12),
-                      ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Отмена'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _saveBatch,
+                      child: const Text('Сохранить'),
+                    ),
                   ],
                 ),
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Отмена'),
-        ),
-        ElevatedButton(onPressed: _saveBatch, child: const Text('Сохранить')),
-      ],
     );
   }
 
@@ -1395,7 +1596,7 @@ class _BatchDialogState extends State<BatchDialog> {
     descriptionController.dispose();
     expirationController.dispose();
     priceController.dispose();
-    batchCountController.dispose();
+    quantityController.dispose();
     itemsPerBatchController.dispose();
     super.dispose();
   }
