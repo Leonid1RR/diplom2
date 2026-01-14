@@ -516,7 +516,7 @@ app.post('/warehouses/:storeId/products', async (req, res) => {
         data: { 
           name, 
           description: description || '', 
-          // Изменение здесь: принимаем 0 или null как отсутствие срока
+          // Уже правильно: expiration && parseInt(expiration) > 0 ? parseInt(expiration) : 0
           expiration: expiration && parseInt(expiration) > 0 ? parseInt(expiration) : 0, 
           price: parseFloat(price) || 0, 
           photo: photo || null 
@@ -1817,7 +1817,8 @@ app.post('/orders/receive', async (req, res) => {
         data: { 
           name: orderData.batchName || 'Товар из поставки',
           description: orderData.description || 'Товар получен из заказа',
-          expiration: orderData.expiration || 30,
+          // ВАЖНОЕ ИСПРАВЛЕНИЕ: Сохраняем оригинальный срок годности из партии
+          expiration: orderData.expiration || 0, // Меняем 30 на 0
           price: parseFloat(pricePerItem),
           photo: photo || orderData.supplierPhoto || null
         }

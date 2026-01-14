@@ -395,9 +395,12 @@ class _ShopMenuState extends State<ShopMenu> {
                             children: [
                               Text('Цена: ${product['price']} руб'),
                               Text('Количество: $count шт'),
-                              Text(
-                                'Срок годности: ${product['expiration']} дней',
-                              ),
+                              // ИСПРАВЛЕНИЕ: показываем срок годности только если он > 0
+                              if (product['expiration'] != null &&
+                                  product['expiration'] > 0)
+                                Text(
+                                  'Срок годности: ${product['expiration']} дней',
+                                ),
                             ],
                           ),
                           trailing: PopupMenuButton(
@@ -448,10 +451,9 @@ class _ShopMenuState extends State<ShopMenu> {
       final matchesSearch = product['name'].toLowerCase().contains(
         _searchQuery.toLowerCase(),
       );
-
       bool matchesFilter = true;
       if (_filterCategory == 'expiring') {
-        matchesFilter = product['expiration'] <= 7;
+        matchesFilter = product['expiration'] > 0 && product['expiration'] <= 7;
       }
 
       return matchesSearch && matchesFilter;
@@ -824,9 +826,12 @@ class _ShopMenuState extends State<ShopMenu> {
                               Text('Цена за партию: ${batch['price']} руб'),
                               Text('Количество партий: $totalQuantity шт'),
                               Text('Товаров в партии: $itemsPerBatch шт'),
-                              Text(
-                                'Срок годности: ${batch['expiration']} дней',
-                              ),
+                              // ИСПРАВЛЕНИЕ: показываем срок годности только если он > 0
+                              if (batch['expiration'] != null &&
+                                  batch['expiration'] > 0)
+                                Text(
+                                  'Срок годности: ${batch['expiration']} дней',
+                                ),
                               Text('Описание: ${batch['description']}'),
                             ],
                           ),
@@ -1203,7 +1208,7 @@ class _ShopMenuState extends State<ShopMenu> {
     return Future.value();
   }
 
-  // Вкладка аккаунта - ОБНОВЛЕНА
+  // Вкладка аккаунта
   Widget _buildAccountTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1564,7 +1569,7 @@ class _ShopMenuState extends State<ShopMenu> {
     final nameController = TextEditingController();
     final descriptionController = TextEditingController();
     final priceController = TextEditingController();
-    final expirationController = TextEditingController(text: '30');
+    final expirationController = TextEditingController(text: '0');
     File? selectedImage;
 
     await showDialog(
@@ -1675,8 +1680,8 @@ class _ShopMenuState extends State<ShopMenu> {
                 }
 
                 final price = double.tryParse(priceController.text) ?? 0.0;
-                final expiration =
-                    int.tryParse(expirationController.text) ?? 30;
+                // ИЗМЕНЕНИЕ: парсим как число, если не получается - 0
+                final expiration = int.tryParse(expirationController.text) ?? 0;
 
                 try {
                   String? photoData;
@@ -1700,7 +1705,8 @@ class _ShopMenuState extends State<ShopMenu> {
                       'name': nameController.text.trim(),
                       'description': descriptionController.text.trim(),
                       'price': price,
-                      'expiration': expiration,
+                      'expiration':
+                          expiration, // Теперь отправляем 0 если срок не указан
                       'photo': photoData,
                     }),
                   );
@@ -1985,6 +1991,11 @@ class _BatchOrderDialogState extends State<BatchOrderDialog> {
               Text('Количество в партии: ${widget.batch['itemsPerBatch']} шт'),
               const SizedBox(height: 4),
               Text('Цена партии: ${widget.batch['price']} руб'),
+              const SizedBox(height: 4),
+              // ИСПРАВЛЕНИЕ: показываем срок годности только если он > 0
+              if (widget.batch['expiration'] != null &&
+                  widget.batch['expiration'] > 0)
+                Text('Срок годности: ${widget.batch['expiration']} дней'),
               const SizedBox(height: 4),
               Text('Доступно партий: ${widget.availableQuantity} шт'),
 

@@ -418,16 +418,18 @@ class _SupplierMenuState extends State<SupplierMenu> {
                           ),
                         ),
                         title: Text(batch['name']),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Цена за партию: ${batch['price']} руб'),
-                            Text('Количество партий: $totalQuantity шт'),
-                            Text('Товаров в партии: $itemsPerBatch шт'),
-                            // УБРАНО "Всего товаров"
-                            Text('Срок годности: ${batch['expiration']} дней'),
-                          ],
-                        ),
+// Внутри Column crossAxisAlignment в _buildBatchesTab():
+subtitle: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Text('Цена за партию: ${batch['price']} руб'),
+    Text('Количество партий: $totalQuantity шт'),
+    Text('Товаров в партии: $itemsPerBatch шт'),
+    // Изменение здесь: показываем срок только если > 0
+    if ((batch['expiration'] ?? 0) > 0)
+      Text('Срок годности: ${batch['expiration']} дней'),
+  ],
+),
                         trailing: PopupMenuButton(
                           itemBuilder: (context) => [
                             const PopupMenuItem(
@@ -1162,24 +1164,27 @@ class _BatchDialogState extends State<BatchDialog> {
   File? _selectedImage;
   String? _currentPhoto;
 
-  @override
-  void initState() {
-    super.initState();
-    if (widget.batch != null) {
-      nameController.text = widget.batch!['name'];
-      descriptionController.text = widget.batch!['description'];
-      expirationController.text = widget.batch!['expiration'].toString();
-      priceController.text = widget.batch!['price'].toString();
-      itemsPerBatchController.text = widget.batch!['itemsPerBatch'].toString();
-      quantityController.text = widget.batch!['quantity'].toString();
-      _currentPhoto = widget.batch!['photo'];
-    } else {
-      expirationController.text = '30';
-      priceController.text = '0';
-      quantityController.text = '1'; // По умолчанию 1 партия
-      itemsPerBatchController.text = '10';
-    }
+@override
+void initState() {
+  super.initState();
+  if (widget.batch != null) {
+    nameController.text = widget.batch!['name'];
+    descriptionController.text = widget.batch!['description'];
+    // Изменение здесь: устанавливаем только если срок > 0
+    final exp = widget.batch!['expiration'];
+    expirationController.text = (exp != null && exp > 0) ? exp.toString() : '';
+    priceController.text = widget.batch!['price'].toString();
+    itemsPerBatchController.text = widget.batch!['itemsPerBatch'].toString();
+    quantityController.text = widget.batch!['quantity'].toString();
+    _currentPhoto = widget.batch!['photo'];
+  } else {
+    // По умолчанию оставляем пустым вместо 30
+    expirationController.text = '';
+    priceController.text = '0';
+    quantityController.text = '1';
+    itemsPerBatchController.text = '10';
   }
+}
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -1276,16 +1281,19 @@ class _BatchDialogState extends State<BatchDialog> {
         return;
       }
 
-      final data = {
-        'name': nameController.text,
-        'description': descriptionController.text,
-        'expiration': int.tryParse(expirationController.text) ?? 30,
-        'price': double.tryParse(priceController.text) ?? 0.0,
-        'photo': photoData,
-        'itemsPerBatch': itemsPerBatch,
-        'quantity': quantity, // Количество таких партий
-        'supplierId': widget.supplierId,
-      };
+final data = {
+  'name': nameController.text,
+  'description': descriptionController.text,
+  // Изменение здесь: преобразуем в число, если введено
+  'expiration': expirationController.text.isNotEmpty 
+      ? int.tryParse(expirationController.text) ?? 0 
+      : 0,
+  'price': double.tryParse(priceController.text) ?? 0.0,
+  'photo': photoData,
+  'itemsPerBatch': itemsPerBatch,
+  'quantity': quantity,
+  'supplierId': widget.supplierId,
+};
 
       final response = widget.batch == null
           ? await http.post(
